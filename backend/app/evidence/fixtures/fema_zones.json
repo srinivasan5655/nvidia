@@ -1,0 +1,16 @@
+{
+  "_note": "De-identified replay fixture shaped like the OpenFEMA v2 DisasterDeclarationsSummaries endpoint.",
+  "records": [
+    {
+      "disasterNumber": 9900,
+      "state": "TX",
+      "declarationType": "EM",
+      "declarationDate": "2026-09-05T18:00:00.000Z",
+      "incidentType": "Flood",
+      "declarationTitle": "SEVERE STORMS AND FLOODING (ILLUSTRATIVE)",
+      "designatedArea": "Harris (County)",
+      "latitude": 29.76,
+      "longitude": -95.37
+    }
+  ]
+}

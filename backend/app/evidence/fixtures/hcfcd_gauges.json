@@ -1,0 +1,35 @@
+{
+  "_note": "De-identified replay fixture shaped like an Esri ArcGIS FeatureServer query response for the HCFCD Flood Warning System gauge layer.",
+  "records": [
+    {
+      "attributes": {
+        "SensorID": "HCFCD-2210",
+        "GaugeName": "Brays Bayou @ Gessner",
+        "SensorValue": 42.8,
+        "SensorStatus": "high",
+        "ReadingDate": 1788616500000
+      },
+      "geometry": {"x": -95.4931, "y": 29.7168}
+    },
+    {
+      "attributes": {
+        "SensorID": "HCFCD-1140",
+        "GaugeName": "Buffalo Bayou @ Shepherd",
+        "SensorValue": 46.3,
+        "SensorStatus": "high",
+        "ReadingDate": 1788616500000
+      },
+      "geometry": {"x": -95.4032, "y": 29.7663}
+    },
+    {
+      "attributes": {
+        "SensorID": "HCFCD-3305",
+        "GaugeName": "White Oak Bayou @ Heights Blvd",
+        "RainfallAccum": 6.4,
+        "SensorStatus": "normal",
+        "ReadingDate": 1788616500000
+      },
+      "geometry": {"x": -95.3987, "y": 29.7902}
+    }
+  ]
+}

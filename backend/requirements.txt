@@ -1,0 +1,26 @@
+# Core web framework
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+pydantic-settings==2.15.0
+httpx==0.28.1
+sse-starlette==3.4.11
+
+# NVIDIA stack — verified installed and API-inspected in this build.
+# IMPORTANT: install nemo-switchyard, never `pip install switchyard` directly —
+# that resolves to an unrelated package (github.com/jsommers/switchyard) that
+# squats the same PyPI/import name.
+nemo-relay[langchain,langgraph,deepagents]==0.8.4
+nemo-switchyard==0.2.0
+openshell==0.0.116
+
+# Agent harness + NVIDIA NIM LangChain connector
+deepagents==0.7.13
+langchain==1.4.0
+langchain-core==1.6.2
+langgraph==1.2.11
+langchain-nvidia-ai-endpoints==1.4.3
+
+# Model clients (OpenAI-compatible dispatch to build.nvidia.com / self-hosted NIM)
+openai==2.54.0
+anthropic==0.125.0

@@ -1,0 +1,29 @@
+{
+  "_note": "De-identified replay fixture shaped like the Houston TranStar JSON incident feed (traffic.houstontranstar.org/api/incidents.json).",
+  "records": [
+    {
+      "id": "TS-88213",
+      "type": "High Water",
+      "roadway": "Allen Parkway",
+      "location": "Allen Parkway at Waugh Dr",
+      "description": "High water reported, westbound lanes impassable",
+      "latitude": 29.7615,
+      "longitude": -95.3892,
+      "start_time": "2026-09-05T14:05:00",
+      "last_updated": "2026-09-05T14:50:00",
+      "status": "active"
+    },
+    {
+      "id": "TS-88219",
+      "type": "Road Closure",
+      "roadway": "Brays Bayou Greenway",
+      "location": "N MacGregor Way near Wheeler",
+      "description": "Roadway closed due to flooding over Brays Bayou",
+      "latitude": 29.7195,
+      "longitude": -95.3708,
+      "start_time": "2026-09-05T14:20:00",
+      "last_updated": "2026-09-05T14:55:00",
+      "status": "active"
+    }
+  ]
+}

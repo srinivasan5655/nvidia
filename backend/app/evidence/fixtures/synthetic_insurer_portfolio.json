@@ -1,0 +1,13 @@
+{
+  "_note": "Synthetic, de-identified insurer policy cohort overlaid on the Houston event footprint. No real policyholder data — illustrative TIV/limit/deductible terms only, per the deck's guardrail on insurer data sensitivity.",
+  "policies": [
+    {"policy_id": "SYN-HOU-0001", "latitude": 29.7615, "longitude": -95.3892, "total_insured_value": 425000, "coverage_limit": 400000, "deductible": 5000},
+    {"policy_id": "SYN-HOU-0002", "latitude": 29.7195, "longitude": -95.3708, "total_insured_value": 610000, "coverage_limit": 550000, "deductible": 10000},
+    {"policy_id": "SYN-HOU-0003", "latitude": 29.7168, "longitude": -95.4931, "total_insured_value": 355000, "coverage_limit": 350000, "deductible": 2500},
+    {"policy_id": "SYN-HOU-0004", "latitude": 29.7663, "longitude": -95.4032, "total_insured_value": 890000, "coverage_limit": 800000, "deductible": 15000},
+    {"policy_id": "SYN-HOU-0005", "latitude": 29.7902, "longitude": -95.3987, "total_insured_value": 275000, "coverage_limit": 275000, "deductible": 1000},
+    {"policy_id": "SYN-HOU-0006", "latitude": 29.699, "longitude": -95.410, "total_insured_value": 512000, "coverage_limit": 500000, "deductible": 5000},
+    {"policy_id": "SYN-HOU-0007", "latitude": 29.760, "longitude": -95.372, "total_insured_value": 730000, "coverage_limit": 700000, "deductible": 10000},
+    {"policy_id": "SYN-HOU-0008", "latitude": 29.60, "longitude": -95.20, "total_insured_value": 480000, "coverage_limit": 450000, "deductible": 5000}
+  ]
+}

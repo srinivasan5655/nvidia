@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Env / secrets
+.env
+backend/var/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+npm-debug.log*
+
+# OS
+.DS_Store
