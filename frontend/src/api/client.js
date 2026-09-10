@@ -1,4 +1,4 @@
-const BASE = '';
+const BASE = document.baseURI.replace(/\/$/, '');
 
 async function req(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
