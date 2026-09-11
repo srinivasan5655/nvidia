@@ -1,232 +1,487 @@
 /* LifeShield AI — Design tokens.
-   Layout/typography/spacing/table/badge system generalized from the IDTCC
-   reference frontend's dark-console aesthetic (kept: grid helpers, spec
-   cells, data-table, badges, uppercase display type). Re-skinned: brand
-   colors moved off BMW's tricolor to a neutral NVIDIA-flavored dark theme —
-   this is an NVIDIA hackathon project, not a BMW one. */
+Re-skinned onto NVIDIA's marketing/engineering design system: single
+saturated NVIDIA Green accent, 2px angular radius everywhere, hairline
+borders instead of shadows, dense uppercase eyebrow labels, EMEA-style
+type hierarchy (substituted with Inter per NVIDIA's documented fallback).
+Applied as a dark-canvas variant of the system (surface-dark throughout,
+matching NVIDIA's own hero/footer/nav chapters) since this is an always-on
+operations console, not a scrolling marketing page. */
 :root {
-  /* Brand colors */
-  --accent: #76b900;       /* NVIDIA green, used sparingly as a single accent */
-  --accent-dim: #4c7a00;
-  --info-blue: #3b82f6;
-  --warning: #f4b400;
-  --danger: #e2231a;
-  --success: #16a34a;
+/* Brand */
+--accent: #76b900;
+--accent-dark: #5a8d00;
+--accent-pale: #bff230;
+--on-primary: #000000;
 
-  /* Surfaces */
-  --canvas: #0a0a0a;
-  --surface-soft: #101010;
-  --surface-card: #17181a;
-  --surface-elevated: #222325;
-  --hairline: #2e2f31;
-  --hairline-strong: #232426;
+/* Surfaces (NVIDIA surface-dark family) */
+--canvas: #000000;
+--surface-soft: #0d0d0d;
+--surface-card: #111111;
+--surface-elevated: #1a1a1a;
+--hairline: #2a2a2a;
+--hairline-strong: #5e5e5e;
 
-  /* Text */
-  --on-dark: #ffffff;
-  --body-color: #b7b8ba;
-  --body-strong: #e8e9ea;
-  --muted: #7a7b7d;
+/* Text */
+--ink: #ffffff;
+--body-color: #d6d6d6;
+--body-strong: #f3f3f3;
+--muted: #8a8a8a;
+--stone: #6b6b6b;
 
-  /* Spacing */
-  --space-xxs: 4px;
-  --space-xs: 8px;
-  --space-sm: 12px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 40px;
-  --space-xxl: 64px;
+/* Semantic */
+--danger: #e52020;
+--danger-deep: #650b0b;
+--warning: #df6500;
+--warning-bright: #ef9100;
+--success: #3f8500;
+--link-blue: #4c8dff;
 
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+/* Radius — aggressively angular per NVIDIA spec */
+--radius-none: 0px;
+--radius-xs: 1px;
+--radius-sm: 2px;
+--radius-full: 9999px;
+
+/* Spacing — 8px base rhythm */
+--space-xxs: 2px;
+--space-xs: 4px;
+--space-sm: 8px;
+--space-md: 12px;
+--space-lg: 16px;
+--space-xl: 24px;
+--space-xxl: 32px;
+--space-section: 64px;
+
+--font-family: 'Inter', 'NVIDIA-EMEA', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
-  min-height: 100vh;
-  background: var(--canvas);
-  color: var(--on-dark);
-  font-family: var(--font-family);
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+min-height: 100vh;
+background: var(--canvas);
+color: var(--body-color);
+font-family: var(--font-family);
+font-size: 16px;
+line-height: 1.5;
+-webkit-font-smoothing: antialiased;
 }
+
+::selection { background: var(--accent); color: var(--on-primary); }
 
 .brand-stripe {
-  height: 3px;
-  width: 100%;
-  background: var(--accent);
-  flex-shrink: 0;
+height: 3px;
+width: 100%;
+background: var(--accent);
+flex-shrink: 0;
 }
 
+/* Typography — NVIDIA hierarchy (weight + size, no color tinting) */
+.display-md { font-size: 36px; font-weight: 700; line-height: 1.25; color: var(--ink); letter-spacing: -0.01em; }
+.display-xl { font-size: 48px; font-weight: 700; line-height: 1.15; color: var(--ink); letter-spacing: -0.01em; }
+.title-lg { font-size: 24px; font-weight: 700; line-height: 1.25; color: var(--ink); }
+.title-md { font-size: 20px; font-weight: 700; line-height: 1.25; color: var(--ink); }
+.body-md { font-size: 16px; font-weight: 400; line-height: 1.5; color: var(--body-color); }
+.body-sm { font-size: 15px; font-weight: 400; line-height: 1.6; color: var(--muted); }
+.body-strong { font-size: 16px; font-weight: 700; line-height: 1.5; color: var(--body-strong); }
+.label-upper {
+font-size: 13px;
+font-weight: 700;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+color: var(--muted);
+}
+.caption { font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--muted); }
+.mono { font-family: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* Layout helpers */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-lg); }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-lg); }
+@media (max-width: 900px) {
+.grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+.grid-2, .grid-4 { grid-template-columns: 1fr; }
+}
+
+/* Buttons */
 .btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  background: var(--accent);
-  color: #0a0a0a;
-  border: none;
-  padding: 14px 28px;
-  height: 46px;
-  font-family: var(--font-family);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 2px;
-  transition: opacity 0.15s;
-  white-space: nowrap;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: var(--space-xs);
+background: var(--accent);
+color: var(--on-primary);
+border: none;
+padding: 12px 24px;
+min-height: 44px;
+font-size: 16px;
+font-weight: 700;
+line-height: 1.25;
+border-radius: var(--radius-sm);
+cursor: pointer;
+transition: background 0.15s ease;
 }
-.btn-primary:hover { opacity: 0.85; }
-.btn-primary:disabled { background: var(--hairline); color: var(--muted); cursor: not-allowed; }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.05); }
+.btn-primary:active { background: var(--accent-dark); }
+.btn-primary:disabled { background: var(--surface-elevated); color: var(--stone); cursor: not-allowed; }
 
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  background: transparent;
-  color: var(--on-dark);
-  border: 1px solid var(--hairline);
-  padding: 13px 27px;
-  height: 46px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 2px;
+.btn-outline {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: var(--space-xs);
+background: transparent;
+color: var(--ink);
+border: 1.5px solid var(--accent);
+padding: 11px 22px;
+min-height: 44px;
+font-size: 16px;
+font-weight: 700;
+border-radius: var(--radius-sm);
+cursor: pointer;
 }
-.btn-secondary:hover { border-color: var(--on-dark); }
 
-.btn-danger { background: var(--danger); color: #fff; }
-.btn-danger:hover { opacity: 0.85; }
+.btn-danger {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: var(--space-xs);
+background: var(--danger);
+color: #ffffff;
+border: none;
+padding: 12px 24px;
+min-height: 44px;
+font-size: 16px;
+font-weight: 700;
+border-radius: var(--radius-sm);
+cursor: pointer;
+}
+.btn-danger:active { background: var(--danger-deep); }
 
 .btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  background: transparent;
-  color: var(--body-color);
-  border: none;
-  padding: 8px 0;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  cursor: pointer;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+background: transparent;
+border: none;
+color: var(--body-color);
+font-size: 14.4px;
+font-weight: 700;
+letter-spacing: 0.02em;
+padding: 9px 14px;
+border-radius: var(--radius-sm);
+cursor: pointer;
 }
-.btn-ghost:hover { color: var(--on-dark); }
-.btn-ghost.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+.btn-ghost.active { color: var(--ink); }
 
+.text-input {
+width: 100%;
+background: var(--surface-card);
+color: var(--ink);
+border: 1px solid var(--hairline);
+padding: 12px 16px;
+min-height: 44px;
+font-size: 16px;
+font-family: var(--font-family);
+border-radius: var(--radius-sm);
+}
+.text-input:focus {
+outline: none;
+border-color: var(--accent);
+border-width: 2px;
+padding: 11px 15px;
+}
+
+/* Cards — flat, hairline border, no shadow, no elevation */
 .card {
-  background: var(--surface-card);
-  padding: var(--space-lg);
-  border-radius: 4px;
-  border: 1px solid var(--hairline);
-}
-.card-elevated {
-  background: var(--surface-elevated);
-  padding: var(--space-lg);
-  border-radius: 4px;
+background: var(--surface-card);
+border: 1px solid var(--hairline);
+border-radius: var(--radius-sm);
+padding: var(--space-xl);
+position: relative;
 }
 
-.spec-cell {
-  background: var(--surface-soft);
-  padding: var(--space-lg);
-  border-radius: 4px;
-  border: 1px solid var(--hairline);
+/* Signature NVIDIA ornament: a small solid-green square anchored to a card corner */
+.corner-sq {
+position: absolute;
+top: 0;
+left: 0;
+width: 12px;
+height: 12px;
+background: var(--accent);
+z-index: 1;
 }
-.spec-cell__value { font-size: 30px; font-weight: 700; line-height: 1.15; color: var(--on-dark); }
-.spec-cell__label { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--body-color); margin-top: var(--space-xs); }
 
-.display-lg { font-size: 44px; font-weight: 800; line-height: 1.05; }
-.display-md { font-size: 30px; font-weight: 700; line-height: 1.15; }
-.title-lg { font-size: 22px; font-weight: 700; line-height: 1.3; }
-.title-md { font-size: 17px; font-weight: 600; line-height: 1.4; }
-.label-upper { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--body-color); }
-.body-md { font-size: 15px; font-weight: 400; line-height: 1.55; color: var(--body-color); }
-.body-sm { font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--body-color); }
-.caption { font-size: 12px; font-weight: 400; color: var(--muted); }
-.muted { color: var(--muted); }
-.mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+.hero-dark {
+background: var(--canvas);
+border: 1px solid var(--hairline);
+border-radius: var(--radius-sm);
+padding: 40px 32px;
+position: relative;
+overflow: hidden;
+}
 
-.section-divider { border: none; border-top: 1px solid var(--hairline); margin: 0; }
-
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--canvas); }
-::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 3px; }
-
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* Tables */
+.data-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .data-table th {
-  background: var(--surface-elevated);
-  color: var(--body-color);
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  font-size: 11px;
-  padding: 10px 14px;
-  text-align: left;
-  border-bottom: 1px solid var(--hairline);
+text-align: left;
+font-size: 13px;
+font-weight: 700;
+letter-spacing: 0.06em;
+text-transform: uppercase;
+color: var(--muted);
+padding: var(--space-sm) var(--space-md);
+border-bottom: 1px solid var(--hairline-strong);
 }
-.data-table td { padding: 9px 14px; border-bottom: 1px solid var(--hairline-strong); color: var(--body-strong); vertical-align: middle; }
-.data-table tr:hover td { background: var(--surface-card); }
-
-textarea, .text-input {
-  background: var(--surface-card);
-  color: var(--on-dark);
-  border: 1px solid var(--hairline);
-  border-radius: 2px;
-  padding: 10px 14px;
-  font-family: var(--font-family);
-  font-size: 14px;
-  outline: none;
-  width: 100%;
+.data-table td {
+padding: var(--space-sm) var(--space-md);
+border-bottom: 1px solid var(--hairline);
+color: var(--body-color);
+vertical-align: top;
 }
-.text-input:focus { border-color: var(--accent); }
+.data-table tr:last-child td { border-bottom: none; }
 
+/* Badges — uppercase badge-tag treatment, tone-colored hairline + dot */
 .badge {
-  display: inline-block;
-  padding: 3px 9px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  border-radius: 3px;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+font-size: 12px;
+font-weight: 700;
+letter-spacing: 0.05em;
+text-transform: uppercase;
+padding: 5px 10px;
+border-radius: var(--radius-sm);
+border: 1px solid var(--hairline-strong);
+background: var(--surface-elevated);
+color: var(--body-color);
+white-space: nowrap;
 }
-.badge-passed   { background: rgba(22,163,74,0.18); color: #4ade80; border: 1px solid rgba(22,163,74,0.4); }
-.badge-degraded { background: rgba(244,180,0,0.15); color: #fbbf24; border: 1px solid rgba(244,180,0,0.4); }
-.badge-blocked  { background: rgba(226,35,26,0.15); color: #f87171; border: 1px solid rgba(226,35,26,0.4); }
-.badge-pending  { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
-.badge-neutral  { background: var(--surface-elevated); color: var(--body-color); border: 1px solid var(--hairline); }
+.badge::before {
+content: '';
+width: 6px;
+height: 6px;
+border-radius: var(--radius-full);
+background: currentColor;
+flex-shrink: 0;
+}
+.badge-passed { color: var(--accent); border-color: var(--accent); background: rgba(118,185,0,0.08); }
+.badge-degraded { color: var(--warning-bright); border-color: var(--warning); background: rgba(223,101,0,0.1); }
+.badge-blocked { color: #ff5a5a; border-color: var(--danger); background: rgba(229,32,32,0.1); }
+.badge-pending { color: #8fb8ff; border-color: #3b5a99; background: rgba(59,90,153,0.12); }
+.badge-neutral { color: var(--stone); border-color: var(--hairline-strong); background: var(--surface-elevated); }
 
-.leaflet-container { background: #111 !important; }
-.leaflet-popup-content-wrapper { background: var(--surface-card) !important; color: var(--on-dark) !important; border: 1px solid var(--hairline) !important; border-radius: 4px !important; }
-.leaflet-popup-tip { background: var(--surface-card) !important; }
-
-.loading-screen {
-  position: fixed; inset: 0; background: var(--canvas);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--space-lg); z-index: 9999;
+.pulse-dot {
+width: 8px;
+height: 8px;
+border-radius: var(--radius-full);
+background: var(--accent);
+box-shadow: 0 0 0 0 rgba(118,185,0,0.6);
+animation: pulse-dot-anim 2s ease-out infinite;
+flex-shrink: 0;
+}
+@keyframes pulse-dot-anim {
+0% { box-shadow: 0 0 0 0 rgba(118,185,0,0.55); }
+70% { box-shadow: 0 0 0 7px rgba(118,185,0,0); }
+100% { box-shadow: 0 0 0 0 rgba(118,185,0,0); }
 }
 
-@keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
-.pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { width: 40px; height: 40px; border: 3px solid var(--hairline); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-lg); }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-lg); }
-.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-md); }
-
-@media (max-width: 1024px) {
-  .grid-4, .grid-5 { grid-template-columns: repeat(2, 1fr); }
-  .grid-3 { grid-template-columns: repeat(2, 1fr); }
-  .display-lg { font-size: 32px; }
+/* Spec cells — big stat readouts */
+.spec-cell {
+background: var(--surface-card);
+border: 1px solid var(--hairline);
+border-radius: var(--radius-sm);
+padding: var(--space-lg);
+position: relative;
 }
-@media (max-width: 768px) {
-  .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+.spec-cell__value { font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.spec-cell__label {
+margin-top: 4px;
+font-size: 12px;
+font-weight: 700;
+letter-spacing: 0.05em;
+text-transform: uppercase;
+color: var(--muted);
+}
+
+/* TiltCard — flattened per NVIDIA's no-shadow rule; keep the 3D tilt motion,
+drop the blurred radial glow in favor of a thin accent edge reveal. */
+.tilt-card {
+transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
+transform-style: preserve-3d;
+transition: transform 0.15s ease-out;
+position: relative;
+}
+.tilt-glow {
+position: absolute;
+inset: 0;
+border-radius: var(--radius-sm);
+pointer-events: none;
+box-shadow: inset 0 0 0 1px transparent;
+transition: box-shadow 0.2s ease;
+}
+.tilt-card:hover .tilt-glow {
+box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Ambient parallax orbs — disabled. NVIDIA's system has no decorative
+gradient mesh / atmospheric glow; keep the component mounted (harmless)
+but render nothing. */
+.parallax-field { display: none; }
+
+/* Workflow pipeline */
+.pipeline-flow {
+display: flex;
+align-items: stretch;
+gap: 0;
+margin-top: var(--space-lg);
+flex-wrap: wrap;
+}
+.pipeline-flow--compact { gap: var(--space-sm); }
+
+.pipeline-node {
+background: var(--surface-card);
+border: 1px solid var(--hairline);
+border-radius: var(--radius-sm);
+padding: var(--space-lg);
+transition: border-color 0.15s ease;
+}
+.pipeline-node:hover { border-color: var(--hairline-strong); }
+
+.pipeline-node__icon {
+width: 34px;
+height: 34px;
+display: flex;
+align-items: center;
+justify-content: center;
+border-radius: var(--radius-sm);
+background: var(--surface-elevated);
+color: var(--stone);
+flex-shrink: 0;
+}
+.pipeline-node__icon.is-passed { color: var(--accent); background: rgba(118,185,0,0.1); }
+.pipeline-node__icon.is-degraded { color: var(--warning-bright); background: rgba(223,101,0,0.12); }
+.pipeline-node__icon.is-blocked { color: #ff5a5a; background: rgba(229,32,32,0.12); }
+.pipeline-node__icon.is-pending { color: #8fb8ff; background: rgba(59,90,153,0.14); }
+.pipeline-node__icon.is-neutral { color: var(--stone); background: var(--surface-elevated); }
+
+.pipeline-node__title {
+margin-top: var(--space-md);
+font-size: 15px;
+font-weight: 700;
+color: var(--ink);
+}
+.pipeline-node__sub {
+margin-top: 4px;
+font-size: 12.5px;
+line-height: 1.5;
+color: var(--muted);
+}
+
+.pipeline-gate-row {
+margin-top: var(--space-md);
+display: flex;
+flex-direction: column;
+gap: 6px;
+}
+.pipeline-gate-chip {
+display: inline-flex;
+align-items: center;
+gap: 6px;
+font-size: 10px;
+font-weight: 700;
+letter-spacing: 0.04em;
+text-transform: uppercase;
+color: var(--stone);
+}
+.pipeline-gate-chip__dot {
+width: 6px;
+height: 6px;
+border-radius: var(--radius-full);
+background: currentColor;
+flex-shrink: 0;
+}
+.pipeline-gate-chip.passed { color: var(--accent); }
+.pipeline-gate-chip.degraded { color: var(--warning-bright); }
+.pipeline-gate-chip.blocked { color: #ff5a5a; }
+.pipeline-gate-chip.pending { color: #8fb8ff; }
+.pipeline-gate-chip.neutral { color: var(--stone); }
+
+.pipeline-summary {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: var(--space-md);
+flex-wrap: wrap;
+}
+
+/* Connector arrow between pipeline nodes */
+.pipeline-arrow {
+display: flex;
+align-items: center;
+justify-content: center;
+min-width: 28px;
+flex: 0 0 28px;
+align-self: center;
+}
+.pipeline-arrow__track {
+position: relative;
+width: 100%;
+height: 2px;
+background: var(--hairline);
+overflow: hidden;
+}
+.pipeline-arrow__fill {
+position: absolute;
+inset: 0;
+background: var(--accent);
+transform-origin: left center;
+}
+.pipeline-arrow__pulse {
+position: absolute;
+inset: 0;
+background: linear-gradient(90deg, transparent, rgba(118,185,0,0.7), transparent);
+}
+
+@media (max-width: 860px) {
+.pipeline-flow { flex-direction: column; }
+.pipeline-arrow { min-width: 100%; height: 20px; flex: 0 0 20px; }
+.pipeline-arrow__track { width: 2px; height: 100%; margin: 0 auto; }
+}
+
+/* Tab switch — the workspace's persistent Emergency Response / Insurance
+   Exposure / Agent Activity segmented control. Same visual language as
+   .btn-ghost's nav underline, just scoped to the workspace body. */
+.tab-switch {
+display: flex;
+gap: 4px;
+border-bottom: 1px solid var(--hairline);
+overflow-x: auto;
+}
+.tab-switch__item {
+position: relative;
+display: inline-flex;
+align-items: center;
+gap: 8px;
+background: transparent;
+border: none;
+color: var(--muted);
+font-size: 14.4px;
+font-weight: 700;
+letter-spacing: 0.02em;
+padding: 12px 18px;
+cursor: pointer;
+white-space: nowrap;
+}
+.tab-switch__item.is-active { color: var(--ink); }
+.tab-switch__item:hover { color: var(--body-strong); }
+.tab-switch__underline {
+position: absolute;
+left: 10px;
+right: 10px;
+bottom: -1px;
+height: 2px;
+background: var(--accent);
 }
