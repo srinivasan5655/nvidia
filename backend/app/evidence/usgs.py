@@ -7,7 +7,7 @@ standard USGS WaterML-JSON `value.timeSeries[]` structure.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -53,7 +53,7 @@ class USGSAdapter(EvidenceAdapter):
         geo = site["geoLocation"]["geogLocation"]
         variable = raw["variable"]["variableCode"][0]["value"]
         values = raw["values"][0]["value"]
-        latest = values[-1] if values else {"value": "NaN", "dateTime": datetime.utcnow().isoformat()}
+        latest = values[-1] if values else {"value": "NaN", "dateTime": datetime.now(timezone.utc).isoformat()}
         var_name = "gauge height (ft)" if variable == "00065" else "discharge (cfs)"
         return EvidenceItem(
             source=self.source,
@@ -70,6 +70,7 @@ class USGSAdapter(EvidenceAdapter):
 def _parse_dt(value: str) -> datetime:
     v = value.replace("Z", "+00:00")
     try:
-        return datetime.fromisoformat(v)
+        dt = datetime.fromisoformat(v)
     except ValueError:
-        return datetime.fromisoformat(v.split(".")[0] + "+00:00")
+        dt = datetime.fromisoformat(v.split(".")[0] + "+00:00")
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)

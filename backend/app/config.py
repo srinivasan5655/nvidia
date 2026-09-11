@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # --- NVIDIA runtime: build.nvidia.com (dev) ---
     nvidia_api_key: str | None = Field(default=None, alias="NVIDIA_API_KEY")
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nim_reasoning_model: str = "nvidia/llama-3.1-nemotron-70b-instruct"
+    nim_reasoning_model: str = "nvidia/nemotron-3-super-120b-a12b"
     nim_vision_model: str = "nvidia/neva-22b"
 
     # --- NVIDIA runtime: self-hosted NIM on Curiosity v2 (prod) ---
@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     openshell_bearer_token: str | None = None
     openshell_cluster: str | None = None
     openshell_workspace: str = "lifeshield-specialists"
+    openshell_sandbox_image: str = "lifeshield-sandbox-py:latest"
 
     # --- Decision gate thresholds (deterministic, not LLM-decided) ---
     confidence_gate_min: float = 0.55

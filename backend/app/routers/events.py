@@ -15,7 +15,9 @@ async def replay_event(request: ReplayEventRequest) -> EventRunResult:
     """Run the full evidence-to-decision pipeline against the committed
     replay fixtures — this is 'today's demo: one replayed Houston event'."""
     settings = get_settings()
-    result = await run_event_pipeline(settings, label=request.label)
+    result = await run_event_pipeline(
+        settings, label=request.label, evidence_mode=request.evidence_mode
+    )
     approval.save_run(result)
     return result
 

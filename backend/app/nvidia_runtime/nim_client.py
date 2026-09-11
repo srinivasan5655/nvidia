@@ -21,7 +21,7 @@ def _client_for(target: LlmTarget) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=target.base_url, api_key=target.api_key or "not-required")
 
 
-async def chat_completion(target: LlmTarget, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 800) -> str:
+async def chat_completion(target: LlmTarget, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 2000) -> str:
     client = _client_for(target)
     resp = await client.chat.completions.create(
         model=target.model,

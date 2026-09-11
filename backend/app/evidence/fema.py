@@ -7,7 +7,7 @@ whether the event area sits inside a declared or pending disaster area.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -55,5 +55,6 @@ class FEMAAdapter(EvidenceAdapter):
 
 def _parse_dt(value: str | None) -> datetime:
     if not value:
-        return datetime.utcnow()
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.now(timezone.utc)
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)

@@ -7,7 +7,7 @@ and the alert's own `id` (a URN) which we use as the lineage identifier.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -56,8 +56,9 @@ class NWSAdapter(EvidenceAdapter):
 
 def _parse_dt(value: str | None) -> datetime:
     if not value:
-        return datetime.utcnow()
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.now(timezone.utc)
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _representative_point(geometry: dict, geocode: dict) -> tuple[float, float]:

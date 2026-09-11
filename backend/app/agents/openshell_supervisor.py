@@ -21,7 +21,9 @@ Verified against installed `openshell` 0.0.116:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+from pathlib import Path
 
 from app.agents.vision_specialist import DamageEvidence, run_vision_specialist_locally
 from app.config import Settings
@@ -85,29 +87,63 @@ async def run_openshell_supervisor(bundle: EventBundle, settings: Settings) -> t
 
 
 async def _run_in_sandbox(bundle: EventBundle, settings: Settings) -> tuple[DamageEvidence, bool]:
-    """Real OpenShell path — requires a live cluster. Structured so that
-    wiring in real credentials (OPENSHELL_ENDPOINT / OPENSHELL_BEARER_TOKEN)
-    on the Curiosity v2 deployment is the only change needed; nothing else in
-    the pipeline knows or cares whether this ran sandboxed."""
+    """Real OpenShell path. Creates a live sandbox on the configured OpenShell
+    gateway/cluster (``settings.openshell_cluster`` resolves the same
+    ~/.config/openshell/gateways/<cluster>/ mTLS metadata the CLI uses - no
+    endpoint/bearer plumbing needed), uploads the field image plus the
+    dependency-free flood_vision specialist module into it, and runs the
+    specialist fully isolated inside the sandbox. Raises on any OpenShell
+    failure; the caller (``run_openshell_supervisor``) degrades rather than
+    crashing the event pipeline.
+    """
     import openshell
+    from openshell._proto import openshell_pb2
 
-    client = openshell.SandboxClient(
-        settings.openshell_endpoint,
-        bearer_token=settings.openshell_bearer_token,
-        cluster_name=settings.openshell_cluster,
+    from app.specialists import flood_vision as specialist_module
+
+    spec = openshell_pb2.SandboxSpec(
+        template=openshell_pb2.SandboxTemplate(image=settings.openshell_sandbox_image),
     )
+    # Sandbox names are capped at 19 chars by the gateway; hash the event id
+    # down to a short, still-collision-resistant suffix.
+    sandbox_name = "vis-" + hashlib.sha1(bundle.event_id.encode()).hexdigest()[:12]
+
     with openshell.Sandbox(
         workspace=settings.openshell_workspace,
         cluster=settings.openshell_cluster,
-        name=f"vision-specialist-{bundle.event_id}",
+        name=sandbox_name,
         delete_on_exit=True,
+        spec=spec,
     ) as sandbox:
-        # The specialist's own code + the one field image are uploaded into
-        # the sandbox workspace; the DeepAgent then runs entirely inside it,
-        # with no network egress beyond the configured NIM inference route.
-        sandbox.workspace_client.upload_file(bundle.field_image_path, "/sandbox/field_image.jpg")
-        result = sandbox.exec(
-            "python3 -m specialists.flood_vision --image /sandbox/field_image.jpg"
+        setup = sandbox.exec(
+            ["bash", "-lc", "mkdir -p /sandbox/specialists && touch /sandbox/specialists/__init__.py"]
         )
+        if setup.exit_code != 0:
+            raise RuntimeError(f"OpenShell sandbox setup failed: {setup.stderr}")
+
+        image_bytes = Path(bundle.field_image_path).read_bytes()
+        upload_image = sandbox.exec(
+            ["bash", "-lc", "cat > /sandbox/field_image.jpg"], stdin=image_bytes
+        )
+        if upload_image.exit_code != 0:
+            raise RuntimeError(f"OpenShell field image upload failed: {upload_image.stderr}")
+
+        specialist_bytes = Path(specialist_module.__file__).read_bytes()
+        upload_specialist = sandbox.exec(
+            ["bash", "-lc", "cat > /sandbox/specialists/flood_vision.py"], stdin=specialist_bytes
+        )
+        if upload_specialist.exit_code != 0:
+            raise RuntimeError(f"OpenShell specialist upload failed: {upload_specialist.stderr}")
+
+        # The specialist's own code + the one field image are uploaded into
+        # the sandbox workspace; it then runs entirely inside it, with no
+        # network egress beyond whatever the sandbox's policy allows.
+        result = sandbox.exec(
+            ["python3", "-m", "specialists.flood_vision", "--image", "/sandbox/field_image.jpg"],
+            workdir="/sandbox",
+        )
+        if result.exit_code != 0:
+            raise RuntimeError(f"OpenShell specialist exited {result.exit_code}: {result.stderr}")
+
         evidence = DamageEvidence.model_validate_json(result.stdout)
         return evidence, True

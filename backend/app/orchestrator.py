@@ -29,7 +29,15 @@ from app.nvidia_runtime.relay_governance import governed_scope
 logger = logging.getLogger("lifeshield.orchestrator")
 
 
-async def run_event_pipeline(settings: Settings, *, label: str) -> EventRunResult:
+async def run_event_pipeline(
+    settings: Settings, *, label: str, evidence_mode: str | None = None
+) -> EventRunResult:
+    """Run the pipeline. ``evidence_mode`` ('replay' or 'live'), when given,
+    overrides the server-default settings.evidence_mode for this call only:
+    a per-request copy is made so concurrent requests never race on the
+    shared Settings singleton."""
+    if evidence_mode is not None and evidence_mode != settings.evidence_mode:
+        settings = settings.model_copy(update={"evidence_mode": evidence_mode})
     bundle = await build_event_bundle(settings, label=label)
 
     with governed_scope("lifeshield_event_pipeline", "Agent", metadata={"event_id": bundle.event_id, "label": label}):

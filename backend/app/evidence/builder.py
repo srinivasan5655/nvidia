@@ -60,5 +60,6 @@ async def build_event_bundle(settings: Settings, *, label: str = "Houston heavy-
         window_end=window_end,
         items=items,
         field_image_path="app/evidence/fixtures/field_image_flood.jpg",
+        evidence_mode=settings.evidence_mode,
     )
     return bundle

@@ -8,7 +8,7 @@ here by falling back to the replay fixture transparently).
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -55,10 +55,10 @@ class TranStarAdapter(EvidenceAdapter):
 
 def _parse_dt(value: str | None) -> datetime:
     if not value:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
         try:
-            return datetime.strptime(value[:19], fmt)
+            return datetime.strptime(value[:19], fmt).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)

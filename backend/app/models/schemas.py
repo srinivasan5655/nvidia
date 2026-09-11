@@ -54,6 +54,7 @@ class EventBundle(BaseModel):
     polygon: list[list[float]]  # [[lon, lat], ...] closed ring
     window_start: datetime
     window_end: datetime
+    evidence_mode: Literal["replay", "live"] = "replay"
     created_at: datetime = Field(default_factory=now_utc)
     items: list[EvidenceItem] = Field(default_factory=list)
     field_image_path: Optional[str] = None
@@ -149,6 +150,8 @@ class EventRunResult(BaseModel):
 class ReplayEventRequest(BaseModel):
     scenario: str = "houston_heavy_rain"
     label: str = "Houston heavy-rain event (replayed)"
+    evidence_mode: Literal["replay", "live"] | None = None
+    """Per-request override of the server-default evidence_mode. None = use server default."""
 
 
 class ApprovalRequest(BaseModel):
