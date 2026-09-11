@@ -50,4 +50,21 @@ export default defineConfig({
     },
     hmr: { path: '__hmr' },
   },
+  preview: {
+    port: 5173,
+    host: true,
+    allowedHosts: ['.axisapps.io'],
+    proxy: {
+      [`${trimmedBase}/api`]: {
+        target: 'http://localhost:8010',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(trimmedBase, ''),
+      },
+      [`${trimmedBase}/health`]: {
+        target: 'http://localhost:8010',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(trimmedBase, ''),
+      },
+    },
+  },
 });

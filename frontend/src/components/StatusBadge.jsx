@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+
 const LABELS = {
   passed: 'Passed',
   degraded: 'Degraded',
@@ -22,5 +24,14 @@ export default function StatusBadge({ status }) {
       not_required: 'badge-neutral',
     }[status] || 'badge-neutral';
 
-  return <span className={`badge ${cls}`}>{LABELS[status] || status}</span>;
+  return (
+    <motion.span
+      className={`badge ${cls}`}
+      initial={{ scale: 0.6, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+    >
+      {LABELS[status] || status}
+    </motion.span>
+  );
 }

@@ -1,3 +1,16 @@
+import { motion } from 'framer-motion';
+import TiltCard from '../components/TiltCard.jsx';
+
+const containerVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.13 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 26 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 250, damping: 23 } },
+};
+
 export default function AuditTrail({ run }) {
   if (!run) return <EmptyState />;
 
@@ -15,53 +28,57 @@ export default function AuditTrail({ run }) {
   rows.sort((a, b) => new Date(a.time) - new Date(b.time));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="card">
+    <motion.div style={{ display: 'flex', flexDirection: 'column', gap: 24 }} variants={containerVariants} initial="hidden" animate="show">
+      <motion.div variants={itemVariants} className="card">
         <div className="label-upper" style={{ color: 'var(--accent)' }}>Audit Trail</div>
         <div className="title-lg" style={{ marginTop: 6 }}>Event {run.event.event_id}</div>
         <div className="body-sm" style={{ marginTop: 6 }}>
           Every row below corresponds to a NeMo Relay scope in the exported <span className="mono">lifeshield_event.atof.jsonl</span> trace
           file (default: <span className="mono">backend/var/relay_traces/</span>). Relay scope IDs are shown for cross-reference.
         </div>
-      </div>
+      </motion.div>
 
-      <div className="card">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Confidence</th>
-              <th>Relay scope</th>
-              <th>Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="mono">{fmt(r.time)}</td>
-                <td className="mono">{r.type}</td>
-                <td className="mono">{r.name}</td>
-                <td className="mono">{r.status}</td>
-                <td className="mono">{(r.confidence * 100).toFixed(0)}%</td>
-                <td className="mono" style={{ fontSize: 11 }}>{r.relayScope || '—'}</td>
-                <td>{r.detail}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <motion.div variants={itemVariants}>
+        <TiltCard maxTilt={2}>
+          <div className="card">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Confidence</th>
+                  <th>Relay scope</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="mono">{fmt(r.time)}</td>
+                    <td className="mono">{r.type}</td>
+                    <td className="mono">{r.name}</td>
+                    <td className="mono">{r.status}</td>
+                    <td className="mono">{(r.confidence * 100).toFixed(0)}%</td>
+                    <td className="mono" style={{ fontSize: 11 }}>{r.relayScope || '—'}</td>
+                    <td>{r.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TiltCard>
+      </motion.div>
 
-      <div className="card">
+      <motion.div variants={itemVariants} className="card">
         <div className="title-md">Approval record</div>
         <div className="body-sm" style={{ marginTop: 8 }}>
           Status: <span className="mono">{run.approval_status}</span>
           {run.approval_note ? ` · Note: "${run.approval_note}"` : ''}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
