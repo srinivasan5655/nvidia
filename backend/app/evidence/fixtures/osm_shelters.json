@@ -1,0 +1,53 @@
+{
+  "_note": "De-identified replay fixture \u2014 real OpenStreetMap community-center / social-facility nodes within the Houston event footprint, captured live via the Overpass API (amenity=community_centre, social_facility=shelter; bare amenity=shelter excluded after inspection showed it tags park picnic gazebos/pavilions, not emergency-capable buildings, in this area). Not an official designated-shelter registry.",
+  "records": [
+    {
+      "osm_type": "way",
+      "osm_id": 434293945,
+      "name": "Fonde Community Center",
+      "tag": "community_centre",
+      "latitude": 29.762983,
+      "longitude": -95.3750079
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 438715623,
+      "name": "MECA",
+      "tag": "community_centre",
+      "latitude": 29.7658149,
+      "longitude": -95.3775625
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 437400453,
+      "name": "Harmony House",
+      "tag": "social_facility",
+      "latitude": 29.7677853,
+      "longitude": -95.364503
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 847975171,
+      "name": "Leonel J. Castillo Community Center",
+      "tag": "community_centre",
+      "latitude": 29.7782508,
+      "longitude": -95.3670594
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 222704120,
+      "name": "Stude Community Center",
+      "tag": "community_centre",
+      "latitude": 29.7787578,
+      "longitude": -95.3854548
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 1055089769,
+      "name": "Woodland Community Center",
+      "tag": "community_centre",
+      "latitude": 29.7833376,
+      "longitude": -95.3704324
+    }
+  ]
+}

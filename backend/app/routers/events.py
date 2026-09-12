@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+import asyncio
+import json
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query
+from sse_starlette.sse import EventSourceResponse
 
 from app.config import get_settings
 from app.decision import approval
@@ -20,6 +25,52 @@ async def replay_event(request: ReplayEventRequest) -> EventRunResult:
     )
     approval.save_run(result)
     return result
+
+
+@router.get("/replay/stream")
+async def replay_event_stream(
+    label: str = Query(default="Houston heavy-rain event (replayed)"),
+    evidence_mode: str | None = Query(default=None),
+):
+    """Same pipeline as POST /replay, but emits one SSE event per stage
+    (evidence assembled, each gate, outputs ready, complete) so the UI can
+    light up the gate pipeline live instead of waiting on one multi-second
+    blocking response. The final 'complete' event carries the identical
+    EventRunResult that POST /replay returns, and this route saves it into
+    the same in-memory store — GET /api/v1/events sees runs from either path.
+    Registered as a plain GET (not under /replay's POST) purely because
+    EventSource can only issue GET requests."""
+    settings = get_settings()
+    queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
+
+    async def on_progress(stage: str, payload: dict[str, Any]) -> None:
+        await queue.put((stage, payload))
+
+    async def run() -> None:
+        try:
+            result = await run_event_pipeline(
+                settings, label=label, evidence_mode=evidence_mode, on_progress=on_progress
+            )
+            approval.save_run(result)
+        finally:
+            await queue.put(None)
+
+    async def event_generator():
+        task = asyncio.create_task(run())
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                stage, payload = item
+                data: dict[str, Any] = {}
+                for key, value in payload.items():
+                    data[key] = value.model_dump(mode="json") if hasattr(value, "model_dump") else value
+                yield {"event": stage, "data": json.dumps(data)}
+        finally:
+            await task
+
+    return EventSourceResponse(event_generator())
 
 
 @router.get("", response_model=list[EventRunResult])

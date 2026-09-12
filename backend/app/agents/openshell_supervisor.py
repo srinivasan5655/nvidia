@@ -25,7 +25,11 @@ import hashlib
 import logging
 from pathlib import Path
 
-from app.agents.vision_specialist import DamageEvidence, run_vision_specialist_locally
+from app.agents.vision_specialist import (
+    DamageEvidence,
+    run_vision_specialist_locally,
+    run_vision_specialist_via_deepagent,
+)
 from app.config import Settings
 from app.models.schemas import EventBundle, GateResult, GateStatus
 from app.nvidia_runtime.relay_governance import governed_scope, scope_id
@@ -48,13 +52,27 @@ async def run_openshell_supervisor(bundle: EventBundle, settings: Settings) -> t
                 relay_scope_id=scope_id(gate_handle),
             ), None
 
+        vision_harness = "deepagents"
         try:
             if settings.openshell_enabled and settings.openshell_endpoint:
                 evidence, sandboxed = await _run_in_sandbox(bundle, settings)
+                vision_harness = "openshell_sandbox"
             else:
                 logger.info("OPENSHELL_ENABLED is False or no endpoint configured — running specialist in-process (no sandbox isolation).")
-                with governed_scope("flood_vision_specialist", "Agent", metadata={"sandboxed": False}):
-                    evidence = await run_vision_specialist_locally(settings, image_path=bundle.field_image_path)
+                # Metadata is fixed at scope-open time, before we know which
+                # path actually produced the result — so it only records
+                # "attempted", not "succeeded". The gate's own
+                # details.vision_harness (set below, after we know) is the
+                # reliable field; don't infer harness from this scope alone.
+                with governed_scope("flood_vision_specialist", "Agent", metadata={"sandboxed": False, "harness_attempted": "deepagents"}):
+                    try:
+                        evidence = await run_vision_specialist_via_deepagent(settings, image_path=bundle.field_image_path)
+                    except Exception as exc:  # noqa: BLE001 - structured-output binding can fail on a given model; fall back, don't crash the gate
+                        logger.warning(
+                            "DeepAgents vision specialist failed (%s); falling back to the direct NIM call path.", exc
+                        )
+                        evidence = await run_vision_specialist_locally(settings, image_path=bundle.field_image_path)
+                        vision_harness = "direct_nim_call"
                 sandboxed = False
         except Exception as exc:  # noqa: BLE001 - NIM unreachable, no key, or sandbox error -> degrade, never crash the pipeline
             logger.warning("Vision specialist failed (%s); degrading rather than failing the event.", exc)
@@ -81,7 +99,7 @@ async def run_openshell_supervisor(bundle: EventBundle, settings: Settings) -> t
             status=status,
             confidence=evidence.confidence if sandboxed else min(evidence.confidence, 0.75),
             reasoning=reasoning,
-            details={"sandboxed": sandboxed, "damage_evidence": evidence.model_dump()},
+            details={"sandboxed": sandboxed, "vision_harness": vision_harness, "damage_evidence": evidence.model_dump()},
             relay_scope_id=scope_id(gate_handle),
         ), evidence
 

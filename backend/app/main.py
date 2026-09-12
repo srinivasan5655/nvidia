@@ -5,10 +5,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.config import get_settings
+from app.config import FIXTURES_DIR, get_settings
 from app.nvidia_runtime.relay_governance import init_relay
-from app.routers import events
+from app.routers import events, relay
 
 logging.basicConfig(level=logging.INFO)
 
@@ -36,6 +37,13 @@ app.add_middleware(
 )
 
 app.include_router(events.router)
+app.include_router(relay.router)
+
+# Serves app/evidence/fixtures/field_image_flood.jpg (and the other fixture
+# files) so the browser can render the same field image the vision
+# specialist analyzed — EventBundle.field_image_path is a server-side
+# filesystem path today and was otherwise unreachable from the frontend.
+app.mount("/static/fixtures", StaticFiles(directory=str(FIXTURES_DIR)), name="fixtures")
 
 
 @app.get("/health")

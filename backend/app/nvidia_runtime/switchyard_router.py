@@ -11,10 +11,15 @@ What we use Switchyard for here: typed, versioned `LlmTarget` definitions for
 our two environments (build.nvidia.com "dev" and self-hosted-NIM-on-Curiosity
 "prod"), built into a `PassthroughProfileConfig` per environment. Switchyard
 owns target typing/validation; we own the environment decision itself
-(deterministic, not a complexity classifier — this app doesn't need Switchyard's
-strong/weak model-tiering feature, just a clean dev/prod seam), matching the
-"you pick the target, Switchyard/your harness makes the call" usage pattern
-from Switchyard's own docs.
+(deterministic, not a complexity classifier).
+
+`resolve_reasoning_target` also does use Switchyard's strong/weak
+model-tiering pattern now: callers pass an explicit `effort` ("low"/"high")
+computed from a real signal in their own domain (life_safety.py looks at
+gate confidence/status, not token counts or prompt length), and this module
+picks the model string for that tier within whichever environment (dev/prod)
+was already selected. The environment decision and the effort decision are
+independent axes — effort never changes which base_url/api_key is used.
 
 Actual request dispatch happens in nim_client.py so we always go through one
 well-tested OpenAI-compatible HTTP path; this module answers only "which
@@ -23,6 +28,7 @@ target, right now" and hands back a ready `LlmTarget`.
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from switchyard import LlmTarget
 
@@ -30,9 +36,13 @@ from app.config import Settings
 
 logger = logging.getLogger("lifeshield.switchyard")
 
+ReasoningEffort = Literal["low", "high"]
 
-def resolve_reasoning_target(settings: Settings) -> LlmTarget:
-    return _resolve(settings, model=settings.nim_reasoning_model)
+
+def resolve_reasoning_target(settings: Settings, *, effort: ReasoningEffort = "high") -> LlmTarget:
+    model = settings.nim_reasoning_model if effort == "high" else settings.nim_reasoning_model_light
+    logger.info("Switchyard: reasoning effort=%s -> model=%s", effort, model)
+    return _resolve(settings, model=model)
 
 
 def resolve_vision_target(settings: Settings) -> LlmTarget:

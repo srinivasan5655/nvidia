@@ -60,12 +60,27 @@ def _damage_ratio(policy: InsurerPolicy, bundle: EventBundle, vision: DamageEvid
         dist = math.hypot(item.latitude - policy.latitude, item.longitude - policy.longitude)
         if dist < best_dist:
             best_dist = dist
-            # crude numeric extraction from the summary string's trailing number
-            digits = "".join(c for c in item.summary.split("=")[-1] if c.isdigit() or c == ".")
-            try:
-                nearest_gauge_value = float(digits) if digits else None
-            except ValueError:
-                nearest_gauge_value = None
+            # Read the reading from structured data, never from prose: USGS
+            # summaries are "<name>: <var> = <value>" (split on "="); HCFCD
+            # summaries have no "=" ("<name>: reading <value> (<status>)") and
+            # must come from the untouched raw attributes instead — digit-
+            # scraping the HCFCD summary string used to fold the trailing
+            # "(<status>)" parenthetical into the number.
+            value = None
+            if item.source.value == "usgs":
+                digits = "".join(c for c in item.summary.split("=")[-1] if c.isdigit() or c == ".")
+                try:
+                    value = float(digits) if digits else None
+                except ValueError:
+                    value = None
+            else:  # hcfcd
+                attrs = item.raw.get("attributes", {}) if isinstance(item.raw, dict) else {}
+                raw_value = attrs.get("SensorValue", attrs.get("RainfallAccum"))
+                try:
+                    value = float(raw_value) if raw_value is not None else None
+                except (TypeError, ValueError):
+                    value = None
+            nearest_gauge_value = value
 
     if nearest_gauge_value is None:
         return 0.05  # some ambient risk even absent a direct reading, never zero once inside the footprint
@@ -93,6 +108,8 @@ def compute_insurer_exposure(
         lines.append(
             InsurerExposureLine(
                 policy_id=policy.policy_id,
+                latitude=policy.latitude,
+                longitude=policy.longitude,
                 total_insured_value=policy.total_insured_value,
                 coverage_limit=policy.coverage_limit,
                 deductible=policy.deductible,

@@ -15,8 +15,24 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.config import Settings
-from app.models.schemas import EventBundle, GateResult, GateStatus
+from app.models.schemas import EventBundle, EvidenceSource, GateResult, GateStatus
 from app.nvidia_runtime.relay_governance import governed_scope, scope_id
+
+# Sources that can actually corroborate "is a flood happening here right
+# now." population_svi (demographic/vulnerability baseline) and osm_shelter
+# (candidate shelter sites) are real context for decision outputs, but they
+# don't move week-to-week, let alone hour-to-hour — counting them toward
+# "N independent sources agree on this event" would be scoring apples
+# (a static census tract) as if it corroborated oranges (an active flood
+# warning). Kept out of this gate's math entirely; they still appear in the
+# evidence table, map, and citing_evidence for other outputs.
+HAZARD_SOURCES = {
+    EvidenceSource.NWS,
+    EvidenceSource.USGS,
+    EvidenceSource.HCFCD,
+    EvidenceSource.TRANSTAR,
+    EvidenceSource.FEMA,
+}
 
 
 def verify_evidence(bundle: EventBundle, settings: Settings) -> GateResult:
@@ -24,13 +40,14 @@ def verify_evidence(bundle: EventBundle, settings: Settings) -> GateResult:
         "evidence_verifier", "Guardrail",
         metadata={"event_id": bundle.event_id, "item_count": len(bundle.items)},
     ) as handle:
-        sources_present = bundle.sources_present()
+        hazard_items = [i for i in bundle.items if i.source in HAZARD_SOURCES]
+        sources_present = {i.source for i in hazard_items}
         n_sources = len(sources_present)
 
         # Freshness: replayed evidence is evaluated as-of the archived window,
         # not wall-clock "now" — that's the whole point of replay mode.
         stale_items = []
-        for item in bundle.items:
+        for item in hazard_items:
             if item.is_replay:
                 continue  # replay evidence is fresh-by-definition relative to its own window
             age_minutes = (datetime.now(timezone.utc) - item.observed_at).total_seconds() / 60
@@ -44,12 +61,12 @@ def verify_evidence(bundle: EventBundle, settings: Settings) -> GateResult:
         lats = [p[1] for p in bundle.polygon]
         bbox = (min(lons), min(lats), max(lons), max(lats))
         out_of_area = [
-            i.item_id for i in bundle.items
+            i.item_id for i in hazard_items
             if not (bbox[0] - 0.2 <= i.longitude <= bbox[2] + 0.2 and bbox[1] - 0.2 <= i.latitude <= bbox[3] + 0.2)
         ]
 
-        agreement_score = 1.0 - (len(out_of_area) / max(len(bundle.items), 1))
-        freshness_score = 1.0 - (len(stale_items) / max(len(bundle.items), 1))
+        agreement_score = 1.0 - (len(out_of_area) / max(len(hazard_items), 1))
+        freshness_score = 1.0 - (len(stale_items) / max(len(hazard_items), 1))
         source_score = min(n_sources / max(settings.evidence_min_agreeing_sources, 1), 1.0)
 
         confidence = round(0.4 * source_score + 0.3 * freshness_score + 0.3 * agreement_score, 3)
@@ -76,7 +93,7 @@ def verify_evidence(bundle: EventBundle, settings: Settings) -> GateResult:
             status=status,
             confidence=confidence,
             reasoning=reasoning,
-            evidence_used=[i.item_id for i in bundle.items],
+            evidence_used=[i.item_id for i in hazard_items],
             details={
                 "sources_present": sorted(s.value for s in sources_present),
                 "stale_items": stale_items,

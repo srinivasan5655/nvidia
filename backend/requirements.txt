@@ -20,6 +20,14 @@ langchain==1.4.0
 langchain-core==1.6.2
 langgraph==1.2.11
 langchain-nvidia-ai-endpoints==1.4.3
+# Generic OpenAI-compatible connector — used specifically for the vision
+# specialist. ChatNVIDIA's image-message formatting is special-cased per
+# model via an internal registry that meta/llama-3.2-11b-vision-instruct
+# isn't in (verified: falls back to an unadjusted request, which NIM then
+# rejects with "image tokens (0) must be the same as the number of images
+# (1)"). Plain ChatOpenAI passes the request through unmodified, matching
+# the raw `openai` SDK call in nim_client.py that already works.
+langchain-openai==1.6.2
 
 # Model clients (OpenAI-compatible dispatch to build.nvidia.com / self-hosted NIM)
 openai==2.54.0

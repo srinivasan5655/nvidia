@@ -41,13 +41,45 @@ class Settings(BaseSettings):
     hcfcd_base_url: str = "https://www.harriscountyfws.org/arcgis/rest/services"
     transtar_base_url: str = "https://traffic.houstontranstar.org/api"
     fema_base_url: str = "https://www.fema.gov/api/open/v2"
+    # CDC/ATSDR SVI — public, keyless ArcGIS REST service (verified live).
+    # E_TOTPOP on this layer is itself sourced from Census ACS 5-year
+    # estimates, so this one call covers both "population baseline" and
+    # "SVI vulnerability" without a separate Census API key/adapter.
+    svi_base_url: str = (
+        "https://onemap.cdc.gov/onemapservices/rest/services/SVI/"
+        "CDC_ATSDR_Social_Vulnerability_Index_2022_USA/MapServer/2"
+    )
+    # OpenStreetMap Overpass — public, keyless.
+    overpass_base_url: str = "https://overpass-api.de/api/interpreter"
     http_timeout_seconds: float = 15.0
+
+    # --- Evacuation routing (real-time, not part of the evidence replay/live
+    # split — always attempted live regardless of evidence_mode, same as the
+    # NIM calls; degrades to a straight-line estimate if unreachable) ---
+    osrm_base_url: str = "http://router.project-osrm.org"
 
     # --- NVIDIA runtime: build.nvidia.com (dev) ---
     nvidia_api_key: str | None = Field(default=None, alias="NVIDIA_API_KEY")
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    # High-effort reasoning target: full-size model for tasks that require
+    # synthesizing ambiguous/degraded/conflicting evidence.
     nim_reasoning_model: str = "nvidia/nemotron-3-super-120b-a12b"
-    nim_vision_model: str = "nvidia/neva-22b"
+    # Low-effort reasoning target: Switchyard's strong/weak model-tiering
+    # feature, actually used now — same Nemotron 3 family, much smaller
+    # active-parameter count, for tasks that are closer to templating a
+    # narrative from evidence that already unambiguously agrees. Verified
+    # working on build.nvidia.com (returns clean JSON in `content`, its
+    # chain-of-thought goes to a separate `reasoning_content` field we
+    # already discard).
+    nim_reasoning_model_light: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
+    # nvidia/neva-22b is listed in the build.nvidia.com catalog but returns a
+    # 404 ("Function ... Not found for account") on at least one verified
+    # account; meta/llama-3.2-11b-vision-instruct is confirmed fast and
+    # reliable for the direct (no-tools) NIM vision call. It does 400 when
+    # tools are bound alongside an image, which is why the DeepAgents path
+    # (vision_specialist._chat_model) hardcodes a different model rather than
+    # reusing this setting — see that function's comment for the full story.
+    nim_vision_model: str = "meta/llama-3.2-11b-vision-instruct"
 
     # --- NVIDIA runtime: self-hosted NIM on Curiosity v2 (prod) ---
     nim_prod_base_url: str | None = None

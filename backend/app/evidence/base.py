@@ -44,8 +44,16 @@ class EvidenceAdapter(abc.ABC):
         self._client = http_client
 
     async def fetch(self, *, polygon: list[list[float]], window_start, window_end) -> list[EvidenceItem]:
-        """Entry point used by the evidence builder. Chooses live vs replay."""
-        if self.settings.evidence_mode == "replay":
+        """Entry point used by the evidence builder. Chooses live vs replay.
+
+        is_replay reflects what data was ACTUALLY used, not the configured
+        mode: a live-mode call that fails and falls back to the fixture
+        produces fixture data, and must be labeled as such. Previously this
+        was set from `settings.evidence_mode` directly, so a live-mode run
+        with (e.g.) TranStar unreachable would badge fallback fixture data
+        as "LIVE" in the UI — exactly backwards."""
+        used_fixture = self.settings.evidence_mode == "replay"
+        if used_fixture:
             raw_records = self._load_fixture()
         else:
             try:
@@ -53,7 +61,8 @@ class EvidenceAdapter(abc.ABC):
             except (httpx.HTTPError, EvidenceAdapterError) as exc:
                 logger.warning("%s live fetch failed (%s); falling back to replay fixture", self.source.value, exc)
                 raw_records = self._load_fixture()
-        return [self._normalize(r, is_replay=self.settings.evidence_mode == "replay") for r in raw_records]
+                used_fixture = True
+        return [self._normalize(r, is_replay=used_fixture) for r in raw_records]
 
     def _load_fixture(self) -> list[dict[str, Any]]:
         path = FIXTURES_DIR / self.fixture_filename

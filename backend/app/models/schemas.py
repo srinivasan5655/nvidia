@@ -27,6 +27,14 @@ class EvidenceSource(str, Enum):
     TRANSTAR = "transtar"
     FEMA = "fema"
     FIELD_IMAGE = "field_image"
+    # Population/vulnerability baseline (CDC/ATSDR SVI, itself built from
+    # Census ACS 5-year estimates — see evidence/population_svi.py) and real
+    # shelter-capable sites (OpenStreetMap) — both informational context for
+    # decision outputs, not flood-hazard evidence. evidence_verifier.py
+    # deliberately excludes both from its source-agreement scoring; see
+    # HAZARD_SOURCES there.
+    POPULATION_SVI = "population_svi"
+    OSM_SHELTER = "osm_shelter"
 
 
 class EvidenceItem(BaseModel):
@@ -94,6 +102,19 @@ class LifeSafetyGuidance(BaseModel):
     hazard_narrative: str
     confidence: float
     citing_evidence: list[str]
+    # Which Switchyard reasoning tier/model produced this narrative — "low"
+    # when evidence was clean and unambiguous (all gates passed, high
+    # confidence), "high" when the model had to reason over degraded/
+    # conflicting signals. Defaults kept for pre-existing callers/tests that
+    # construct this model without the new fields.
+    reasoning_effort: Literal["low", "high"] = "high"
+    model_used: str = ""
+    # Which harness produced headline/guidance_points/hazard_narrative:
+    # "deepagents" when the DeepAgents-wrapped call succeeded end-to-end,
+    # "direct" when it fell back to a plain NIM chat completion (see
+    # app/agents/hazard_agent.py). Independent of reasoning_effort — that's
+    # which model tier, this is which calling harness.
+    agent_harness: Literal["deepagents", "direct"] = "direct"
 
 
 class InsurerPolicy(BaseModel):
@@ -107,6 +128,8 @@ class InsurerPolicy(BaseModel):
 
 class InsurerExposureLine(BaseModel):
     policy_id: str
+    latitude: float
+    longitude: float
     total_insured_value: float
     coverage_limit: float
     deductible: float
@@ -124,6 +147,47 @@ class InsurerExposureOutput(BaseModel):
     methodology: str
     confidence: float
     citing_evidence: list[str]
+    # Agent-authored underwriter narrative — set only on the "deepagents"
+    # harness path (see app/agents/exposure_agent.py). Every numeric field
+    # above always comes from compute_insurer_exposure()'s deterministic
+    # math regardless of harness; the agent only narrates numbers it read
+    # back from that tool, never computes or restates them itself.
+    narrative: str = ""
+    agent_harness: Literal["deepagents", "direct"] = "direct"
+
+
+class EvacuationRouteLeg(BaseModel):
+    """One candidate origin->shelter route. Deterministic, like insurer
+    exposure: no model ever picks a route or a shelter — OSRM (real public
+    routing engine) computes the path, geometry, distance and duration; a
+    shelter only appears here if it's a real evidence item from the OSM
+    adapter above."""
+
+    shelter_item_id: str  # EvidenceItem.item_id of the OSM_SHELTER source
+    shelter_name: str
+    shelter_latitude: float
+    shelter_longitude: float
+    distance_km: float
+    duration_min: float
+    route_geometry: list[list[float]]  # [[lon, lat], ...] — OSRM path, or a 2-point straight line if degraded
+    routed_live: bool  # False when OSRM was unreachable and this is a great-circle estimate, not a real road route
+    closure_warnings: list[str] = Field(default_factory=list)  # nearby TranStar incident summaries, if any
+
+
+class EvacuationPlan(BaseModel):
+    origin_latitude: float
+    origin_longitude: float
+    origin_basis: str  # e.g. "centroid of reported high-water incidents" or "event footprint centroid"
+    routes: list[EvacuationRouteLeg]
+    methodology: str
+    confidence: float
+    citing_evidence: list[str]
+    # Agent-authored dispatcher narrative — set only on the "deepagents"
+    # harness path (see app/agents/evacuation_agent.py). Every route/
+    # distance/duration above always comes from compute_evacuation_plan()'s
+    # OSRM-backed math regardless of harness.
+    narrative: str = ""
+    agent_harness: Literal["deepagents", "direct"] = "direct"
 
 
 class ApprovalStatus(str, Enum):
@@ -138,6 +202,7 @@ class EventRunResult(BaseModel):
     gates: list[GateResult] = Field(default_factory=list)
     life_safety: Optional[LifeSafetyGuidance] = None
     insurer_exposure: Optional[InsurerExposureOutput] = None
+    evacuation_plan: Optional[EvacuationPlan] = None
     overall_status: Literal["blocked", "awaiting_approval", "approved", "rejected"] = "blocked"
     approval_status: ApprovalStatus = ApprovalStatus.PENDING
     approval_note: Optional[str] = None

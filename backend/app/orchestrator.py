@@ -14,75 +14,147 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any, Awaitable, Callable, Optional
 
 from app.agents.confidence_gate import check_confidence
+from app.agents.evacuation_agent import run_evacuation_agent
 from app.agents.evidence_verifier import verify_evidence
+from app.agents.exposure_agent import run_exposure_agent
 from app.agents.openshell_supervisor import run_openshell_supervisor
 from app.agents.policy_verifier import verify_policy
 from app.config import Settings
+from app.decision.evacuation import compute_evacuation_plan
 from app.decision.insurer_exposure import compute_insurer_exposure
 from app.decision.life_safety import synthesize_life_safety_guidance
 from app.evidence.builder import build_event_bundle
-from app.models.schemas import ApprovalStatus, EventRunResult, GateStatus
+from app.models.schemas import ApprovalStatus, EventRunResult, GateResult, GateStatus
 from app.nvidia_runtime.relay_governance import governed_scope
 
 logger = logging.getLogger("lifeshield.orchestrator")
 
+# (stage_name, payload) -> None. Payload shapes: "evidence_assembled" carries
+# {"event": EventBundle}; "gate" carries {"gate": GateResult}; "outputs_ready"
+# carries {"life_safety": ..., "insurer_exposure": ...}; "complete" carries
+# {"result": EventRunResult}. Purely additive instrumentation hook — when
+# None (the default, and always the case for POST /replay), behavior and
+# timing are byte-for-byte identical to before this hook existed.
+ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
+
+
+async def _emit(on_progress: Optional[ProgressCallback], stage: str, payload: dict[str, Any]) -> None:
+    if on_progress is not None:
+        await on_progress(stage, payload)
+
 
 async def run_event_pipeline(
-    settings: Settings, *, label: str, evidence_mode: str | None = None
+    settings: Settings,
+    *,
+    label: str,
+    evidence_mode: str | None = None,
+    on_progress: Optional[ProgressCallback] = None,
 ) -> EventRunResult:
     """Run the pipeline. ``evidence_mode`` ('replay' or 'live'), when given,
     overrides the server-default settings.evidence_mode for this call only:
     a per-request copy is made so concurrent requests never race on the
-    shared Settings singleton."""
+    shared Settings singleton. ``on_progress``, when given, is awaited after
+    each pipeline stage so a caller (e.g. an SSE route) can stream progress;
+    it never changes what is returned."""
     if evidence_mode is not None and evidence_mode != settings.evidence_mode:
         settings = settings.model_copy(update={"evidence_mode": evidence_mode})
     bundle = await build_event_bundle(settings, label=label)
+    await _emit(on_progress, "evidence_assembled", {"event": bundle})
 
     with governed_scope("lifeshield_event_pipeline", "Agent", metadata={"event_id": bundle.event_id, "label": label}):
-        gates = []
+        gates: list[GateResult] = []
 
         evidence_gate = verify_evidence(bundle, settings)
         gates.append(evidence_gate)
+        await _emit(on_progress, "gate", {"gate": evidence_gate})
 
         confidence_result = check_confidence(evidence_gate, settings)
         gates.append(confidence_result)
+        await _emit(on_progress, "gate", {"gate": confidence_result})
 
         if confidence_result.status == GateStatus.BLOCKED:
             logger.info("Event %s blocked at confidence gate: %s", bundle.event_id, confidence_result.reasoning)
-            return EventRunResult(event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED)
+            result = EventRunResult(event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED)
+            await _emit(on_progress, "complete", {"result": result})
+            return result
 
         openshell_gate, vision_evidence = await run_openshell_supervisor(bundle, settings)
         gates.append(openshell_gate)
+        await _emit(on_progress, "gate", {"gate": openshell_gate})
 
         policy_gate = verify_policy(bundle, gates, settings)
         gates.append(policy_gate)
+        await _emit(on_progress, "gate", {"gate": policy_gate})
 
         if policy_gate.status == GateStatus.BLOCKED:
             logger.info("Event %s blocked at policy verifier: %s", bundle.event_id, policy_gate.reasoning)
-            return EventRunResult(event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED)
+            result = EventRunResult(event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED)
+            await _emit(on_progress, "complete", {"result": result})
+            return result
 
         overall_confidence = min(g.confidence for g in gates)
 
-        life_safety, insurer_exposure = await asyncio.gather(
-            synthesize_life_safety_guidance(bundle, gates, vision_evidence, settings),
-            _compute_exposure_async(bundle, vision_evidence, overall_confidence),
+        # Sequential, not asyncio.gather: verified that concurrently-open
+        # NeMo Relay scopes on separate tasks corrupt the shared native scope
+        # stack ("invalid argument: scope handle is not at the top of the
+        # stack") once more than one of these does real async work under its
+        # own governed_scope — true the moment all three could attempt a
+        # DeepAgents call. Relay's scope() does accept an explicit parent
+        # `handle=`, which might allow safe concurrency, but the native
+        # (Rust-backed) push/pop stack's behavior under concurrent handles
+        # isn't documented clearly enough to trust for a live demo; a few
+        # extra seconds of latency is a better trade than a 500 on some
+        # fraction of runs.
+        life_safety = await synthesize_life_safety_guidance(bundle, gates, vision_evidence, settings)
+        insurer_exposure = await _compute_exposure_async(bundle, vision_evidence, overall_confidence, settings)
+        evacuation_plan = await _compute_evacuation_async(bundle, settings, overall_confidence)
+        await _emit(
+            on_progress,
+            "outputs_ready",
+            {"life_safety": life_safety, "insurer_exposure": insurer_exposure, "evacuation_plan": evacuation_plan},
         )
 
         result = EventRunResult(
             event=bundle,
             gates=gates,
             life_safety=life_safety,
+            evacuation_plan=evacuation_plan,
             insurer_exposure=insurer_exposure,
             overall_status="awaiting_approval" if settings.require_human_approval else "approved",
             approval_status=ApprovalStatus.PENDING if settings.require_human_approval else ApprovalStatus.NOT_REQUIRED,
         )
+        await _emit(on_progress, "complete", {"result": result})
         return result
 
 
-async def _compute_exposure_async(bundle, vision_evidence, confidence):
-    # insurer_exposure math is synchronous/deterministic; wrapped so it can
-    # run concurrently with the life-safety LLM call via asyncio.gather.
-    with governed_scope("insurer_exposure_calc", "Tool", metadata={"event_id": bundle.event_id}):
-        return compute_insurer_exposure(bundle, vision_evidence, confidence)
+async def _compute_exposure_async(bundle, vision_evidence, confidence, settings):
+    # Exposure Agent (DeepAgents) attempted first — matches the architecture
+    # diagram's "04 Insurance / Exposure Agent". Its only tool IS
+    # compute_insurer_exposure(), so every numeric field is still that
+    # deterministic math regardless of which branch runs; the agent only
+    # adds a narrative. Falls back to calling the math directly on any
+    # DeepAgents failure — see vision_specialist.py's module docstring for
+    # the verified multi-tool-binding failure mode on this NIM account.
+    with governed_scope("insurer_exposure_calc", "Agent", metadata={"event_id": bundle.event_id}):
+        try:
+            return await run_exposure_agent(bundle, vision_evidence, confidence, settings)
+        except Exception as exc:  # noqa: BLE001 - DeepAgents harness failure -> fall back to deterministic math directly
+            logger.warning("Exposure Agent failed (%s); falling back to direct calculation.", exc)
+            return compute_insurer_exposure(bundle, vision_evidence, confidence)
+
+
+async def _compute_evacuation_async(bundle, settings, confidence):
+    # Evacuation Planner Agent (DeepAgents) attempted first — matches the
+    # architecture diagram's "03 Response / Evacuation Planner". Its only
+    # tool IS compute_evacuation_plan(), so every route/distance/duration is
+    # still that OSRM-backed math regardless of which branch runs. Falls
+    # back to calling it directly on any DeepAgents failure.
+    with governed_scope("evacuation_plan_calc", "Agent", metadata={"event_id": bundle.event_id}):
+        try:
+            return await run_evacuation_agent(bundle, settings, confidence=confidence)
+        except Exception as exc:  # noqa: BLE001 - DeepAgents harness failure -> fall back to deterministic routing directly
+            logger.warning("Evacuation Agent failed (%s); falling back to direct calculation.", exc)
+            return await compute_evacuation_plan(bundle, settings, confidence=confidence)
