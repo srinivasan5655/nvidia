@@ -1,0 +1,57 @@
+{
+  "_note": "Illustrative replay fixture shaped like a real api.weather.gov /alerts/active GeoJSON FeatureCollection, re-purposed with Bangalore (IMD) urban-flooding narrative content for the India demo city. Used when EVIDENCE_MODE=replay.",
+  "records": [
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.356.0.demo-bangalore-flood-warning-001",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.60, 12.97], [77.69, 12.97], [77.69, 12.90], [77.60, 12.90], [77.60, 12.97]
+        ]]
+      },
+      "properties": {
+        "id": "urn:oid:2.49.0.1.356.0.demo-bangalore-flood-warning-001",
+        "areaDesc": "Bengaluru Urban District, Karnataka; Bellandur Lake and Koramangala-Challaghatta (K-C) Valley stormwater drain corridor",
+        "geocode": {"SAME": ["KA-BLR-01"], "UGC": ["INKA001"]},
+        "event": "Flash Flood Warning",
+        "severity": "Severe",
+        "certainty": "Observed",
+        "urgency": "Immediate",
+        "sent": "2026-09-10T10:15:00+05:30",
+        "effective": "2026-09-10T10:15:00+05:30",
+        "expires": "2026-09-10T22:00:00+05:30",
+        "headline": "Flash Flood Warning issued for Bellandur Lake and Koramangala Valley stormwater drain overflow, Bengaluru",
+        "description": "Intense rainfall over the Bellandur Lake catchment has caused the Koramangala-Challaghatta (K-C) Valley Raja Kaluve (stormwater drain) to overtop its banks near Silk Board Junction and Agara Lake. Between 90 and 130 mm of rain have fallen in the past 12 hours, with encroached drain sections restricting outflow.",
+        "instruction": "Avoid Silk Board Junction, HSR Layout underpasses, and low-lying stretches of Outer Ring Road. Do not attempt to cross flooded roads.",
+        "senderName": "India Meteorological Department, Bengaluru"
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.356.0.demo-bangalore-heavy-rain-002",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.59, 12.98], [77.70, 12.98], [77.70, 12.89], [77.59, 12.89], [77.59, 12.98]
+        ]]
+      },
+      "properties": {
+        "id": "urn:oid:2.49.0.1.356.0.demo-bangalore-heavy-rain-002",
+        "areaDesc": "Bengaluru Urban District, Karnataka; Koramangala, HSR Layout, Marathahalli",
+        "geocode": {"SAME": ["KA-BLR-01"], "UGC": ["INKA001"]},
+        "event": "Heavy Rain",
+        "severity": "Moderate",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "sent": "2026-09-10T07:00:00+05:30",
+        "effective": "2026-09-10T07:00:00+05:30",
+        "expires": "2026-09-10T19:00:00+05:30",
+        "headline": "Heavy to very heavy rainfall warning for Bengaluru Urban and surrounding areas",
+        "description": "A cyclonic circulation over the southwest Bay of Bengal is drawing moisture inland, expected to bring heavy to very heavy rainfall over Bengaluru Urban, Bengaluru Rural, and adjoining districts over the next 24 hours.",
+        "instruction": "Avoid unnecessary travel through the Outer Ring Road IT corridor. Stay clear of stormwater drains and lake bunds.",
+        "senderName": "India Meteorological Department, Bengaluru"
+      }
+    }
+  ]
+}

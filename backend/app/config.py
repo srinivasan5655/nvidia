@@ -109,6 +109,18 @@ class Settings(BaseSettings):
     # --- Human approval ---
     require_human_approval: bool = True
 
+    # --- Demo SMS console (Twilio) ---
+    # All optional and unset by default — the SMS console degrades to a
+    # clear "not configured" state rather than crashing when these are
+    # absent, exactly like nvidia_api_key/openshell_* above. Every message
+    # goes to ONE preconfigured recipient (sms_demo_recipient), never an
+    # arbitrary number the frontend supplies — this is a demo console, not a
+    # general SMS gateway.
+    twilio_account_sid: str | None = Field(default=None, alias="TWILIO_ACCOUNT_SID")
+    twilio_auth_token: str | None = Field(default=None, alias="TWILIO_AUTH_TOKEN")
+    twilio_from_number: str | None = Field(default=None, alias="TWILIO_FROM_NUMBER")
+    sms_demo_recipient: str | None = Field(default=None, alias="SMS_DEMO_RECIPIENT")
+
 
 @lru_cache
 def get_settings() -> Settings:

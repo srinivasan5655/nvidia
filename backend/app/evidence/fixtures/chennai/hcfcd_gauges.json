@@ -1,0 +1,35 @@
+{
+  "_note": "Illustrative replay fixture shaped like an Esri ArcGIS FeatureServer query response for a flood-warning-system gauge layer, re-purposed with Greater Chennai Corporation stormwater-drain sensor narrative content for the India demo city.",
+  "records": [
+    {
+      "attributes": {
+        "SensorID": "GCC-SWD-3312",
+        "GaugeName": "Velachery stormwater drain @ 100 Feet Road",
+        "SensorValue": 38.6,
+        "SensorStatus": "high",
+        "ReadingDate": 1789020300000
+      },
+      "geometry": {"x": 80.2206, "y": 12.9791}
+    },
+    {
+      "attributes": {
+        "SensorID": "GCC-SWD-1187",
+        "GaugeName": "Mylapore drain @ R.K. Mutt Road",
+        "SensorValue": 29.4,
+        "SensorStatus": "high",
+        "ReadingDate": 1789020300000
+      },
+      "geometry": {"x": 80.2697, "y": 13.0368}
+    },
+    {
+      "attributes": {
+        "SensorID": "GCC-SWD-2245",
+        "GaugeName": "T. Nagar drain @ Panagal Park",
+        "RainfallAccum": 21.3,
+        "SensorStatus": "normal",
+        "ReadingDate": 1789020300000
+      },
+      "geometry": {"x": 80.2337, "y": 13.0418}
+    }
+  ]
+}

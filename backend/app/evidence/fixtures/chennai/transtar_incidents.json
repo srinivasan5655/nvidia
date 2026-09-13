@@ -1,0 +1,29 @@
+{
+  "_note": "Illustrative replay fixture shaped like the Houston TranStar JSON incident feed, re-purposed with Chennai Traffic Police road-closure narrative content for the India demo city.",
+  "records": [
+    {
+      "id": "CTP-55102",
+      "type": "High Water",
+      "roadway": "100 Feet Road",
+      "location": "100 Feet Road at Velachery bus depot",
+      "description": "High water reported, both carriageways impassable near the Adyar River overflow",
+      "latitude": 12.9791,
+      "longitude": 80.2206,
+      "start_time": "2026-09-10T09:05:00",
+      "last_updated": "2026-09-10T10:20:00",
+      "status": "active"
+    },
+    {
+      "id": "CTP-55109",
+      "type": "Road Closure",
+      "roadway": "Anna Salai",
+      "location": "Anna Salai near Saidapet bridge",
+      "description": "Roadway closed due to flooding over the Adyar River at Saidapet",
+      "latitude": 13.0244,
+      "longitude": 80.2237,
+      "start_time": "2026-09-10T09:25:00",
+      "last_updated": "2026-09-10T10:40:00",
+      "status": "active"
+    }
+  ]
+}

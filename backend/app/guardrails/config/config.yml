@@ -1,0 +1,19 @@
+# NeMo Guardrails config for the SMS console — moderates the free-text alert
+# message an operator types before it's sent to a real phone number via
+# Twilio. The `models` entry below is a schema placeholder only: the actual
+# LLM instance is always passed explicitly as `LLMRails(config, llm=...)`
+# from app/guardrails/sms_rails.py, reusing the same ChatNVIDIA target/
+# api_key pattern every other agent in this app already uses — this file
+# never causes a second, differently-configured NIM client to be built.
+models:
+  - type: main
+    engine: nvidia_ai_endpoints
+    model: placeholder
+
+rails:
+  input:
+    flows:
+      - self check input
+  output:
+    flows:
+      - self check output

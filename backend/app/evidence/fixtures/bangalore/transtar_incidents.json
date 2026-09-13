@@ -1,0 +1,29 @@
+{
+  "_note": "Illustrative replay fixture shaped like the Houston TranStar JSON incident feed, re-purposed with Bangalore Traffic Police road-closure narrative content for the India demo city.",
+  "records": [
+    {
+      "id": "BTP-71204",
+      "type": "High Water",
+      "roadway": "Hosur Road",
+      "location": "Hosur Road at Silk Board Junction",
+      "description": "High water reported, both carriageways impassable near the K-C Valley drain overflow",
+      "latitude": 12.9172,
+      "longitude": 77.6229,
+      "start_time": "2026-09-10T10:10:00",
+      "last_updated": "2026-09-10T11:25:00",
+      "status": "active"
+    },
+    {
+      "id": "BTP-71211",
+      "type": "Road Closure",
+      "roadway": "Outer Ring Road",
+      "location": "Outer Ring Road near Bellandur Lake bridge",
+      "description": "Roadway closed due to flooding over Bellandur Lake outfall channel",
+      "latitude": 12.9304,
+      "longitude": 77.6650,
+      "start_time": "2026-09-10T10:35:00",
+      "last_updated": "2026-09-10T11:50:00",
+      "status": "active"
+    }
+  ]
+}

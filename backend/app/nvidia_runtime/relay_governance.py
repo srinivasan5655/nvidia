@@ -83,3 +83,34 @@ def scope_id(handle: Any) -> str | None:
     if handle is None:
         return None
     return getattr(handle, "uuid", None) or str(handle)
+
+
+def record_token_usage(
+    handle: Any, *, model: str, prompt_tokens: int, completion_tokens: int, total_tokens: int
+) -> None:
+    """Attaches a `nemo.relay.metric_measurements` mark to an in-flight LLM
+    scope — verified against 0.8.4: `scope.metric()` writes a `kind: "mark"`
+    record whose `data.measurements[]` carries typed counter values, exported
+    to the same ATOF file every other scope/event lands in. This is the ONLY
+    place token counts enter the audit trail — nim_client.py never talks to
+    nemo_relay directly, matching this module's own no-bypass rule above.
+    Counter measurements are typed F64 in this SDK version (an I64 counter
+    raises `ValueError: ... does not support value_type i64` — verified by
+    hand against the installed package, not assumed from the type hints)."""
+    if handle is None or not _initialized:
+        return
+    try:
+        nr.scope.metric(
+            "llm.tokens",
+            [
+                nr.MetricMeasurement("prompt_tokens", nr.MetricKind.Counter, nr.MetricValueType.F64, float(prompt_tokens)),
+                nr.MetricMeasurement(
+                    "completion_tokens", nr.MetricKind.Counter, nr.MetricValueType.F64, float(completion_tokens)
+                ),
+                nr.MetricMeasurement("total_tokens", nr.MetricKind.Counter, nr.MetricValueType.F64, float(total_tokens)),
+            ],
+            handle=handle,
+            metadata={"model": model},
+        )
+    except Exception as exc:  # pragma: no cover - telemetry must never break a real call
+        logger.warning("Failed to record token usage on relay scope (%s)", exc)

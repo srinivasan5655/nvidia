@@ -10,15 +10,30 @@ from __future__ import annotations
 import base64
 import logging
 from pathlib import Path
+from typing import Any
 
 from openai import AsyncOpenAI
 from switchyard import LlmTarget
+
+from app.nvidia_runtime.relay_governance import record_token_usage
 
 logger = logging.getLogger("lifeshield.nim")
 
 
 def _client_for(target: LlmTarget) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=target.base_url, api_key=target.api_key or "not-required")
+
+
+def _record_usage(relay_handle: Any, target: LlmTarget, usage: Any) -> None:
+    if usage is None:
+        return
+    record_token_usage(
+        relay_handle,
+        model=target.model,
+        prompt_tokens=usage.prompt_tokens or 0,
+        completion_tokens=usage.completion_tokens or 0,
+        total_tokens=usage.total_tokens or 0,
+    )
 
 
 async def chat_completion(
@@ -29,6 +44,7 @@ async def chat_completion(
     temperature: float = 0.2,
     max_tokens: int = 2000,
     disable_thinking: bool = False,
+    relay_handle: Any = None,
 ) -> str:
     """``disable_thinking`` forwards `chat_template_kwargs: {"thinking": false}`
     — verified against nvidia/nemotron-3.5-lightning-30b-a3b, where it
@@ -56,11 +72,18 @@ async def chat_completion(
         max_tokens=max_tokens,
         **kwargs,
     )
+    _record_usage(relay_handle, target, resp.usage)
     return resp.choices[0].message.content or ""
 
 
 async def vision_completion(
-    target: LlmTarget, *, prompt: str, image_path: str, max_tokens: int = 500, json_mode: bool = False
+    target: LlmTarget,
+    *,
+    prompt: str,
+    image_path: str,
+    max_tokens: int = 500,
+    json_mode: bool = False,
+    relay_handle: Any = None,
 ) -> str:
     """Send a geo-tagged field/drone image to a NIM vision-language model
     (e.g. meta/llama-3.2-11b-vision-instruct, or a self-hosted VLM in prod)
@@ -97,4 +120,5 @@ async def vision_completion(
         max_tokens=max_tokens,
         **kwargs,
     )
+    _record_usage(relay_handle, target, resp.usage)
     return resp.choices[0].message.content or ""

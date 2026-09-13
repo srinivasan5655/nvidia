@@ -1,0 +1,45 @@
+{
+  "_note": "Illustrative replay fixture shaped like real OpenStreetMap community-center / social-facility nodes, re-purposed with plausible Chennai government-school and community-hall names for the India demo city. Not an official designated-shelter registry.",
+  "records": [
+    {
+      "osm_type": "way",
+      "osm_id": 934812001,
+      "name": "Corporation Higher Secondary School, Saidapet",
+      "tag": "community_centre",
+      "latitude": 13.0251,
+      "longitude": 80.2229
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 934812017,
+      "name": "Velachery Community Hall",
+      "tag": "community_centre",
+      "latitude": 12.9796,
+      "longitude": 80.2213
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 934812029,
+      "name": "Mylapore Corporation Middle School",
+      "tag": "community_centre",
+      "latitude": 13.0361,
+      "longitude": 80.2691
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 934812041,
+      "name": "T. Nagar Marriage Hall (Relief Camp)",
+      "tag": "social_facility",
+      "latitude": 13.0409,
+      "longitude": 80.2331
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 934812053,
+      "name": "Kotturpuram Government Higher Secondary School",
+      "tag": "community_centre",
+      "latitude": 13.0179,
+      "longitude": 80.2452
+    }
+  ]
+}

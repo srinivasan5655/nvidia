@@ -1,0 +1,35 @@
+{
+  "_note": "Illustrative replay fixture shaped like an Esri ArcGIS FeatureServer query response for a flood-warning-system gauge layer, re-purposed with BBMP (Bruhat Bengaluru Mahanagara Palike) stormwater drain sensor narrative content for the India demo city.",
+  "records": [
+    {
+      "attributes": {
+        "SensorID": "BBMP-SWD-4471",
+        "GaugeName": "Koramangala drain @ Sony World Junction",
+        "SensorValue": 33.2,
+        "SensorStatus": "high",
+        "ReadingDate": 1789024200000
+      },
+      "geometry": {"x": 77.6245, "y": 12.9352}
+    },
+    {
+      "attributes": {
+        "SensorID": "BBMP-SWD-2298",
+        "GaugeName": "HSR Layout drain @ Sector 1",
+        "SensorValue": 27.9,
+        "SensorStatus": "high",
+        "ReadingDate": 1789024200000
+      },
+      "geometry": {"x": 77.6408, "y": 12.9116}
+    },
+    {
+      "attributes": {
+        "SensorID": "BBMP-SWD-3355",
+        "GaugeName": "Marathahalli drain @ Outer Ring Road",
+        "RainfallAccum": 17.6,
+        "SensorStatus": "normal",
+        "ReadingDate": 1789024200000
+      },
+      "geometry": {"x": 77.6974, "y": 12.9569}
+    }
+  ]
+}

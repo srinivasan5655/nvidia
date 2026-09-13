@@ -59,6 +59,8 @@ class EventBundle(BaseModel):
 
     event_id: str = Field(default_factory=lambda: new_id("evt"))
     label: str
+    city: str = "houston"  # "houston" | "chennai" | "bangalore"
+    city_label: str = "Houston, TX"
     polygon: list[list[float]]  # [[lon, lat], ...] closed ring
     window_start: datetime
     window_end: datetime
@@ -197,12 +199,25 @@ class ApprovalStatus(str, Enum):
     NOT_REQUIRED = "not_required"
 
 
+class CounterfactualAnalysis(BaseModel):
+    """AI-written "what if this warning had never been issued" narrative,
+    generated once per completed event — a plain-language counterfactual,
+    not a second set of deterministic numbers. Never fabricates a dollar
+    figure or a body count; the prompt explicitly asks for qualitative
+    reasoning grounded in the same evidence the rest of the pipeline saw."""
+
+    narrative: str
+    model_used: str = ""
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
 class EventRunResult(BaseModel):
     event: EventBundle
     gates: list[GateResult] = Field(default_factory=list)
     life_safety: Optional[LifeSafetyGuidance] = None
     insurer_exposure: Optional[InsurerExposureOutput] = None
     evacuation_plan: Optional[EvacuationPlan] = None
+    counterfactual: Optional[CounterfactualAnalysis] = None
     overall_status: Literal["blocked", "awaiting_approval", "approved", "rejected"] = "blocked"
     approval_status: ApprovalStatus = ApprovalStatus.PENDING
     approval_note: Optional[str] = None
@@ -215,6 +230,7 @@ class EventRunResult(BaseModel):
 class ReplayEventRequest(BaseModel):
     scenario: str = "houston_heavy_rain"
     label: str = "Houston heavy-rain event (replayed)"
+    city: str = "houston"  # "houston" | "chennai" | "bangalore"
     evidence_mode: Literal["replay", "live"] | None = None
     """Per-request override of the server-default evidence_mode. None = use server default."""
 
@@ -223,3 +239,28 @@ class ApprovalRequest(BaseModel):
     decision: Literal["approved", "rejected"]
     note: Optional[str] = None
     approver: str = "duty_officer"
+
+
+class SmsSendRequest(BaseModel):
+    message: str
+
+
+class SmsSendResult(BaseModel):
+    sent: bool
+    reason: str | None = None  # e.g. "not_configured", "twilio_error"
+    detail: str | None = None
+    to_number_masked: str | None = None
+    provider_sid: str | None = None
+
+
+class SmsDraftRequest(BaseModel):
+    city_label: str
+    headline: str
+    guidance_points: list[str] = Field(default_factory=list)
+    language_code: str = "en"
+
+
+class SmsDraftResult(BaseModel):
+    message: str
+    model_used: str
+    language: str

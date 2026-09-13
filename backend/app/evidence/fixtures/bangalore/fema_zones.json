@@ -1,0 +1,16 @@
+{
+  "_note": "Illustrative replay fixture shaped like the OpenFEMA v2 DisasterDeclarationsSummaries endpoint, re-purposed with an NDMA/KSDMA (Karnataka State Disaster Management Authority) flood-zone declaration narrative for the Bangalore India demo city.",
+  "records": [
+    {
+      "disasterNumber": 7701,
+      "state": "KA",
+      "declarationType": "EM",
+      "declarationDate": "2026-09-10T13:00:00.000Z",
+      "incidentType": "Flood",
+      "declarationTitle": "URBAN FLOODING FROM STORMWATER DRAIN (RAJA KALUVE) OVERFLOW (ILLUSTRATIVE)",
+      "designatedArea": "Bengaluru Urban (District)",
+      "latitude": 12.9236,
+      "longitude": 77.6389
+    }
+  ]
+}

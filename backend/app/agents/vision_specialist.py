@@ -15,6 +15,8 @@ LangChain DeepAgents harness + Nemotron-class model).
 """
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from app.config import Settings
@@ -124,7 +126,7 @@ async def run_vision_specialist_via_deepagent(settings: Settings, *, image_path:
     return structured
 
 
-async def run_vision_specialist_locally(settings: Settings, *, image_path: str) -> DamageEvidence:
+async def run_vision_specialist_locally(settings: Settings, *, image_path: str, relay_handle: Any = None) -> DamageEvidence:
     """Fallback path when no OpenShell cluster is configured: call the NIM
     vision endpoint directly (no sandbox isolation). Used in replay-mode demo
     runs; `openshell_supervisor` marks the gate DEGRADED when this path is
@@ -152,6 +154,7 @@ async def run_vision_specialist_locally(settings: Settings, *, image_path: str) 
         ),
         image_path=image_path,
         json_mode=True,
+        relay_handle=relay_handle,
     )
     return _parse_or_degrade(raw)
 

@@ -1,0 +1,246 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+   LifeShield AI design tokens — derived from DESIGN-nvidia.md.
+   The marketing system is paper-white with black hero/footer chapters;
+   this product is an always-on operations console, so the whole canvas
+   runs on the system's `surface-dark` / `surface-elevated` pairing
+   instead of alternating to `canvas`. Every other rule carries over
+   unchanged: one accent (`primary` NVIDIA green), 2px radius on every
+   interactive surface, hairline borders instead of shadows, uppercase
+   caption type for eyebrows/badges, and a single decorative motif (the
+   corner square) reserved for card identity.
+------------------------------------------------------------------------ */
+@theme {
+  --font-sans: "Inter", Arial, Helvetica, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  /* Brand & accent */
+  --color-primary: #76b900;
+  --color-primary-dark: #5a8d00;
+  --color-on-primary: #000000;
+  --color-accent-green-pale: #bff230;
+
+  /* Surfaces (dark-first: this app never leaves the dark mode) */
+  --color-canvas: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface-elevated: #141414;
+  --color-surface-raised: #1a1a1a;
+  --color-surface-soft: #202020;
+  --color-hairline: #2c2c2c;
+  --color-hairline-strong: #3d3d3d;
+
+  /* Text */
+  --color-ink: #ffffff;
+  --color-body: #e4e4e4;
+  --color-mute: #9a9a9a;
+  --color-stone: #757575;
+  --color-ash: #4d4d4d;
+
+  /* Semantic */
+  --color-error: #e52020;
+  --color-error-deep: #650b0b;
+  --color-warning: #df6500;
+  --color-warning-bright: #ef9100;
+  --color-success-deep: #3f8500;
+  --color-link-blue: #4d8fdb;
+  --color-accent-purple: #952fc6;
+
+  /* Shape */
+  --radius-none: 0px;
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-full: 9999px;
+
+  /* Spacing rhythm: DESIGN-nvidia.md's scale (4/8/12/16/24/32/64px) maps
+     1:1 onto Tailwind's default numeric spacing scale (p-1..p-16), so we
+     rely on that instead of redefining --spacing-{xs,sm,md,lg,xl,...}.
+     Tailwind v4 shares the spacing scale's named keys across every sizing
+     utility family (max-w-sm, w-lg, etc.) — overriding --spacing-sm here
+     previously clobbered max-w-sm (and friends) to 8px app-wide. */
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-body);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fixed ambient wash behind every page — two soft, low-opacity radial glows
+   (brand green, upper-left; a cooler teal-green, lower-right) that give the
+   flat-black canvas depth without ever becoming a visible gradient panel
+   behind content. Fixed + -1 so it never scrolls or intercepts clicks. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60rem 40rem at 15% -10%, rgba(118, 185, 0, 0.16), transparent 60%),
+    radial-gradient(50rem 35rem at 110% 10%, rgba(191, 242, 48, 0.08), transparent 55%),
+    radial-gradient(60rem 45rem at 50% 120%, rgba(118, 185, 0, 0.08), transparent 60%);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-in {
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+::selection {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-hairline-strong);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-mute);
+}
+
+/* Utility: the system's signature ornamental device — a small solid-green
+   square anchored to a card corner. Used sparingly per DESIGN-nvidia.md's
+   "keep primary scarce" rule: gate cards and the hero recommendation only. */
+.corner-square {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  background: var(--color-primary);
+}
+
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-pulse-live {
+  animation: pulse-live 1.6s ease-in-out infinite;
+}
+
+/* AiBadge's signature glow — the one visual cue that means "a model wrote
+   this," so it needs to read as unmistakably different from every other
+   badge in the app on first glance, not just on close inspection. */
+@keyframes ai-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 0.5px rgba(125, 211, 252, 0.25), 0 0 0 1px rgba(125, 211, 252, 0.15) inset;
+  }
+  50% {
+    box-shadow: 0 0 10px 2px rgba(125, 211, 252, 0.45), 0 0 0 1px rgba(125, 211, 252, 0.3) inset;
+  }
+}
+.animate-ai-glow {
+  animation: ai-glow 2.2s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.animate-scan {
+  animation: scan 3.2s linear infinite;
+}
+
+@keyframes radar-ping {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+.animate-radar-ping {
+  animation: radar-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes grid-drift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 40px;
+  }
+}
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(118, 185, 0, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(118, 185, 0, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-drift 6s linear infinite;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: var(--color-mute) !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--color-mute) !important;
+}
+.maplibregl-popup-content {
+  background: var(--color-surface-elevated) !important;
+  color: var(--color-body) !important;
+  border: 1px solid var(--color-hairline-strong) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+  font-family: var(--font-sans) !important;
+}
+.maplibregl-popup-tip {
+  border-top-color: var(--color-surface-elevated) !important;
+  border-bottom-color: var(--color-surface-elevated) !important;
+}
+.maplibregl-ctrl-group {
+  background: var(--color-surface-elevated) !important;
+  border: 1px solid var(--color-hairline-strong) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--color-hairline-strong) !important;
+}

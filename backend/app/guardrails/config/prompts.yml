@@ -1,0 +1,23 @@
+# Self-check prompts scoped to this app's one real use of guardrails: an
+# emergency-alert SMS about to go out to real citizens. Deliberately narrow
+# ("block only X") rather than a generic safety prompt, so a legitimate
+# urgent flood warning (which can read as alarming, by design) is never
+# mistaken for something that needs blocking.
+prompts:
+  - task: self_check_input
+    content: |
+      You are reviewing a message an emergency-management operator wants to send as a public SMS flood/disaster alert.
+      Urgent, alarming safety language (e.g. "evacuate now", "flooding", "danger") is EXPECTED and must NOT be blocked.
+      Block it ONLY if it contains: harassment or hate speech, sexual content, instructions for violence unrelated to
+      the disaster, or content with no connection at all to a disaster/safety alert.
+      Message: "{{ user_input }}"
+      Should this message be blocked? Answer with exactly one word: "yes" or "no".
+
+  - task: self_check_output
+    content: |
+      You are reviewing a public SMS flood/disaster alert message right before it is sent to real citizens.
+      Urgent, alarming safety language (e.g. "evacuate now", "flooding", "danger") is EXPECTED and must NOT be blocked.
+      Block it ONLY if it contains: harassment or hate speech, sexual content, or instructions that would put people
+      in MORE danger (e.g. telling people to do something unsafe).
+      Message: "{{ bot_response }}"
+      Should this message be blocked? Answer with exactly one word: "yes" or "no".

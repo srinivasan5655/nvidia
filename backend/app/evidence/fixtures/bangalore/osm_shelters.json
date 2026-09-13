@@ -1,0 +1,45 @@
+{
+  "_note": "Illustrative replay fixture shaped like real OpenStreetMap community-center / social-facility nodes, re-purposed with plausible Bangalore government-school and community-hall names for the India demo city. Not an official designated-shelter registry.",
+  "records": [
+    {
+      "osm_type": "way",
+      "osm_id": 945823101,
+      "name": "Koramangala Government Model Primary School",
+      "tag": "community_centre",
+      "latitude": 12.9358,
+      "longitude": 77.6251
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 945823117,
+      "name": "HSR Layout Community Hall",
+      "tag": "community_centre",
+      "latitude": 12.9121,
+      "longitude": 77.6414
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 945823129,
+      "name": "Agara Government Higher Primary School",
+      "tag": "community_centre",
+      "latitude": 12.9241,
+      "longitude": 77.6395
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 945823141,
+      "name": "Bellandur Kalyana Mantapa (Relief Camp)",
+      "tag": "social_facility",
+      "latitude": 12.9298,
+      "longitude": 77.6642
+    },
+    {
+      "osm_type": "way",
+      "osm_id": 945823153,
+      "name": "Marathahalli Government Higher Secondary School",
+      "tag": "community_centre",
+      "latitude": 12.9563,
+      "longitude": 77.6981
+    }
+  ]
+}

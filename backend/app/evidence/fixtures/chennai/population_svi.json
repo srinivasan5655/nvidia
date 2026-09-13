@@ -1,0 +1,116 @@
+{
+  "_note": "Illustrative replay fixture shaped like the CDC/ATSDR SVI-style ArcGIS MapServer bbox response, re-purposed with illustrative Chennai ward/tract-style vulnerability data for the India demo city. Aggregated at fixture-build time the same way the live adapter aggregates at request time.",
+  "records": [
+    {
+      "total_population": 48260,
+      "area_weighted_svi": 0.6123,
+      "tract_count": 8,
+      "most_vulnerable_tract": {
+        "fips": "TN-CHN-WARD-118",
+        "location": "Ward 118 (Velachery); Chennai District; Tamil Nadu",
+        "rpl_themes": 0.9241,
+        "population": 7120
+      },
+      "centroid_latitude": 13.0067,
+      "centroid_longitude": 80.2565,
+      "tracts": [
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-118",
+          "LOCATION": "Ward 118 (Velachery); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.9241,
+          "RPL_THEME1": 0.9012,
+          "RPL_THEME2": 0.8877,
+          "RPL_THEME3": 0.9530,
+          "RPL_THEME4": 0.9204,
+          "E_TOTPOP": 7120
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-172",
+          "LOCATION": "Ward 172 (Saidapet); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.7788,
+          "RPL_THEME1": 0.7124,
+          "RPL_THEME2": 0.6902,
+          "RPL_THEME3": 0.8341,
+          "RPL_THEME4": 0.8977,
+          "E_TOTPOP": 6340
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-155",
+          "LOCATION": "Ward 155 (Kotturpuram); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.4416,
+          "RPL_THEME1": 0.3891,
+          "RPL_THEME2": 0.3022,
+          "RPL_THEME3": 0.5904,
+          "RPL_THEME4": 0.4847,
+          "E_TOTPOP": 5810
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-126",
+          "LOCATION": "Ward 126 (T. Nagar); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.5230,
+          "RPL_THEME1": 0.6011,
+          "RPL_THEME2": 0.4127,
+          "RPL_THEME3": 0.5904,
+          "RPL_THEME4": 0.4877,
+          "E_TOTPOP": 8215
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-104",
+          "LOCATION": "Ward 104 (Mylapore); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.3987,
+          "RPL_THEME1": 0.4102,
+          "RPL_THEME2": 0.2891,
+          "RPL_THEME3": 0.4560,
+          "RPL_THEME4": 0.4395,
+          "E_TOTPOP": 6002
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-134",
+          "LOCATION": "Ward 134 (Adyar); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.6512,
+          "RPL_THEME1": 0.5877,
+          "RPL_THEME2": 0.7204,
+          "RPL_THEME3": 0.6299,
+          "RPL_THEME4": 0.6668,
+          "E_TOTPOP": 5390
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-141",
+          "LOCATION": "Ward 141 (Kotturpuram North); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.5744,
+          "RPL_THEME1": 0.5203,
+          "RPL_THEME2": 0.4988,
+          "RPL_THEME3": 0.6410,
+          "RPL_THEME4": 0.6377,
+          "E_TOTPOP": 4983
+        },
+        {
+          "STATE": "Tamil Nadu",
+          "COUNTY": "Chennai District",
+          "FIPS": "TN-CHN-WARD-163",
+          "LOCATION": "Ward 163 (Egmore); Chennai District; Tamil Nadu",
+          "RPL_THEMES": 0.6803,
+          "RPL_THEME1": 0.6552,
+          "RPL_THEME2": 0.7100,
+          "RPL_THEME3": 0.7218,
+          "RPL_THEME4": 0.6349,
+          "E_TOTPOP": 4400
+        }
+      ]
+    }
+  ]
+}

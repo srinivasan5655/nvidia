@@ -21,7 +21,7 @@ async def replay_event(request: ReplayEventRequest) -> EventRunResult:
     replay fixtures — this is 'today's demo: one replayed Houston event'."""
     settings = get_settings()
     result = await run_event_pipeline(
-        settings, label=request.label, evidence_mode=request.evidence_mode
+        settings, label=request.label, city=request.city, evidence_mode=request.evidence_mode
     )
     approval.save_run(result)
     return result
@@ -30,6 +30,7 @@ async def replay_event(request: ReplayEventRequest) -> EventRunResult:
 @router.get("/replay/stream")
 async def replay_event_stream(
     label: str = Query(default="Houston heavy-rain event (replayed)"),
+    city: str = Query(default="houston"),
     evidence_mode: str | None = Query(default=None),
 ):
     """Same pipeline as POST /replay, but emits one SSE event per stage
@@ -49,7 +50,7 @@ async def replay_event_stream(
     async def run() -> None:
         try:
             result = await run_event_pipeline(
-                settings, label=label, evidence_mode=evidence_mode, on_progress=on_progress
+                settings, label=label, city=city, evidence_mode=evidence_mode, on_progress=on_progress
             )
             approval.save_run(result)
         finally:

@@ -13,6 +13,12 @@ sse-starlette==3.4.11
 nemo-relay[langchain,langgraph,deepagents]==0.8.4
 nemo-switchyard==0.2.0
 openshell==0.0.116
+# Pure-Python, CPU-only — installs and runs fine on this Windows dev box
+# (verified: no C++ build step was even triggered, unlike some older
+# nemoguardrails releases that needed a compiler for the `annoy` dependency).
+# Used only for app/guardrails/sms_rails.py — the one place free-typed text
+# reaches an LLM before going out to a real phone number.
+nemoguardrails==0.24.0
 
 # Agent harness + NVIDIA NIM LangChain connector
 deepagents==0.7.13

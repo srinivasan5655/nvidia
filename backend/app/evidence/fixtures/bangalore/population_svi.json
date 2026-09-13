@@ -1,0 +1,116 @@
+{
+  "_note": "Illustrative replay fixture shaped like the CDC/ATSDR SVI-style ArcGIS MapServer bbox response, re-purposed with illustrative Bengaluru ward/tract-style vulnerability data for the India demo city. Aggregated at fixture-build time the same way the live adapter aggregates at request time.",
+  "records": [
+    {
+      "total_population": 52410,
+      "area_weighted_svi": 0.5887,
+      "tract_count": 8,
+      "most_vulnerable_tract": {
+        "fips": "KA-BLR-WARD-150",
+        "location": "Ward 150 (Bellandur); Bengaluru Urban District; Karnataka",
+        "rpl_themes": 0.9103,
+        "population": 7460
+      },
+      "centroid_latitude": 12.9236,
+      "centroid_longitude": 77.6389,
+      "tracts": [
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-150",
+          "LOCATION": "Ward 150 (Bellandur); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.9103,
+          "RPL_THEME1": 0.8877,
+          "RPL_THEME2": 0.8501,
+          "RPL_THEME3": 0.9450,
+          "RPL_THEME4": 0.9012,
+          "E_TOTPOP": 7460
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-176",
+          "LOCATION": "Ward 176 (Koramangala); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.7345,
+          "RPL_THEME1": 0.6890,
+          "RPL_THEME2": 0.6512,
+          "RPL_THEME3": 0.8022,
+          "RPL_THEME4": 0.8365,
+          "E_TOTPOP": 7020
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-190",
+          "LOCATION": "Ward 190 (HSR Layout); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.4732,
+          "RPL_THEME1": 0.4210,
+          "RPL_THEME2": 0.3688,
+          "RPL_THEME3": 0.6104,
+          "RPL_THEME4": 0.5245,
+          "E_TOTPOP": 6810
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-165",
+          "LOCATION": "Ward 165 (Agara); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.5981,
+          "RPL_THEME1": 0.6402,
+          "RPL_THEME2": 0.4877,
+          "RPL_THEME3": 0.6890,
+          "RPL_THEME4": 0.5758,
+          "E_TOTPOP": 6255
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-152",
+          "LOCATION": "Ward 152 (Silk Board / Bommanahalli); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.6847,
+          "RPL_THEME1": 0.7123,
+          "RPL_THEME2": 0.5934,
+          "RPL_THEME3": 0.7455,
+          "RPL_THEME4": 0.6877,
+          "E_TOTPOP": 8110
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-183",
+          "LOCATION": "Ward 183 (Marathahalli); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.4128,
+          "RPL_THEME1": 0.3897,
+          "RPL_THEME2": 0.3011,
+          "RPL_THEME3": 0.5245,
+          "RPL_THEME4": 0.4359,
+          "E_TOTPOP": 6944
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-158",
+          "LOCATION": "Ward 158 (Varthur); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.5560,
+          "RPL_THEME1": 0.5203,
+          "RPL_THEME2": 0.4788,
+          "RPL_THEME3": 0.6210,
+          "RPL_THEME4": 0.6041,
+          "E_TOTPOP": 5311
+        },
+        {
+          "STATE": "Karnataka",
+          "COUNTY": "Bengaluru Urban District",
+          "FIPS": "KA-BLR-WARD-142",
+          "LOCATION": "Ward 142 (Sarjapur Road); Bengaluru Urban District; Karnataka",
+          "RPL_THEMES": 0.6503,
+          "RPL_THEME1": 0.6122,
+          "RPL_THEME2": 0.6899,
+          "RPL_THEME3": 0.6890,
+          "RPL_THEME4": 0.6377,
+          "E_TOTPOP": 4500
+        }
+      ]
+    }
+  ]
+}

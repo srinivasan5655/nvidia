@@ -82,7 +82,7 @@ async def synthesize_life_safety_guidance(
         "life_safety_narrative",
         "Llm",
         metadata={"event_id": bundle.event_id, "model": target.model, "reasoning_effort": effort},
-    ):
+    ) as handle:
         try:
             # Hazard Overlay Agent (DeepAgents) attempted first — matches the
             # architecture diagram's "02 Geospatial / Hazard Overlay Agent".
@@ -111,7 +111,12 @@ async def synthesize_life_safety_guidance(
                 # it's turned off outright rather than just widened token
                 # budgets (which reduce but don't eliminate the failure mode).
                 raw = await nim_client.chat_completion(
-                    target, system=SYSTEM_PROMPT, user=user_prompt, max_tokens=2000, disable_thinking=(effort == "low")
+                    target,
+                    system=SYSTEM_PROMPT,
+                    user=user_prompt,
+                    max_tokens=2000,
+                    disable_thinking=(effort == "low"),
+                    relay_handle=handle,
                 )
                 parsed = _parse(raw)
             except Exception as exc2:  # noqa: BLE001 - NIM unreachable in this sandbox / no key configured -> degrade, don't crash

@@ -64,14 +64,16 @@ async def run_openshell_supervisor(bundle: EventBundle, settings: Settings) -> t
                 # "attempted", not "succeeded". The gate's own
                 # details.vision_harness (set below, after we know) is the
                 # reliable field; don't infer harness from this scope alone.
-                with governed_scope("flood_vision_specialist", "Agent", metadata={"sandboxed": False, "harness_attempted": "deepagents"}):
+                with governed_scope("flood_vision_specialist", "Agent", metadata={"sandboxed": False, "harness_attempted": "deepagents"}) as vision_handle:
                     try:
                         evidence = await run_vision_specialist_via_deepagent(settings, image_path=bundle.field_image_path)
                     except Exception as exc:  # noqa: BLE001 - structured-output binding can fail on a given model; fall back, don't crash the gate
                         logger.warning(
                             "DeepAgents vision specialist failed (%s); falling back to the direct NIM call path.", exc
                         )
-                        evidence = await run_vision_specialist_locally(settings, image_path=bundle.field_image_path)
+                        evidence = await run_vision_specialist_locally(
+                            settings, image_path=bundle.field_image_path, relay_handle=vision_handle
+                        )
                         vision_harness = "direct_nim_call"
                 sandboxed = False
         except Exception as exc:  # noqa: BLE001 - NIM unreachable, no key, or sandbox error -> degrade, never crash the pipeline

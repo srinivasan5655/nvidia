@@ -1,0 +1,16 @@
+{
+  "_note": "Illustrative replay fixture shaped like the OpenFEMA v2 DisasterDeclarationsSummaries endpoint, re-purposed with an NDMA (National Disaster Management Authority) flood-zone declaration narrative for the Chennai India demo city.",
+  "records": [
+    {
+      "disasterNumber": 7700,
+      "state": "TN",
+      "declarationType": "EM",
+      "declarationDate": "2026-09-10T12:00:00.000Z",
+      "incidentType": "Flood",
+      "declarationTitle": "SEVERE MONSOON RAINFALL AND URBAN FLOODING (ILLUSTRATIVE)",
+      "designatedArea": "Chennai (District)",
+      "latitude": 13.0067,
+      "longitude": 80.2565
+    }
+  ]
+}

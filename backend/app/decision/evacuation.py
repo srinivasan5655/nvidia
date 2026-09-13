@@ -142,9 +142,9 @@ async def compute_evacuation_plan(
 
     methodology = (
         "Shelters are real OpenStreetMap community-center/social-facility nodes in the event footprint "
-        "(not an official designated-shelter registry). Routes are computed by OSRM over the real Houston "
-        "road network from the centroid of reported high-water/closure incidents; a route is flagged, never "
-        "rerouted, when it passes within "
+        "(not an official designated-shelter registry). Routes are computed by OSRM over the real "
+        f"{bundle.city_label} road network from the centroid of reported high-water/closure incidents; a route "
+        "is flagged, never rerouted, when it passes within "
         f"{CLOSURE_PROXIMITY_KM * 1000:.0f}m of a reported closure. No model selects a shelter or draws a route — "
         "this is deterministic routing math, same discipline as the insurer-exposure calculation."
     )

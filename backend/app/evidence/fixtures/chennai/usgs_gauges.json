@@ -1,0 +1,57 @@
+{
+  "_note": "Illustrative replay fixture shaped like waterservices.usgs.gov /nwis/iv value.timeSeries[] entries, re-purposed with Chennai river-gauge narrative content (CWC / Chennai Metro Water station names) for the India demo city.",
+  "records": [
+    {
+      "sourceInfo": {
+        "siteName": "Adyar River at Kotturpuram, Chennai",
+        "siteCode": [{"value": "IN-CWC-ADY-014", "network": "CWC", "agencyCode": "CWC"}],
+        "geoLocation": {"geogLocation": {"srs": "EPSG:4326", "latitude": 13.0186, "longitude": 80.2447}}
+      },
+      "variable": {
+        "variableCode": [{"value": "00065", "network": "NWIS", "vocabulary": "NWIS:UnitValues"}],
+        "variableName": "Gage height, ft",
+        "unit": {"unitCode": "ft"}
+      },
+      "values": [{
+        "value": [
+          {"value": "12.1", "qualifiers": ["P"], "dateTime": "2026-09-10T08:45:00+05:30"},
+          {"value": "15.8", "qualifiers": ["P"], "dateTime": "2026-09-10T09:45:00+05:30"}
+        ]
+      }]
+    },
+    {
+      "sourceInfo": {
+        "siteName": "Cooum River at Egmore Bridge, Chennai",
+        "siteCode": [{"value": "IN-CWC-COO-007", "network": "CWC", "agencyCode": "CWC"}],
+        "geoLocation": {"geogLocation": {"srs": "EPSG:4326", "latitude": 13.0521, "longitude": 80.2589}}
+      },
+      "variable": {
+        "variableCode": [{"value": "00065", "network": "NWIS", "vocabulary": "NWIS:UnitValues"}],
+        "variableName": "Gage height, ft",
+        "unit": {"unitCode": "ft"}
+      },
+      "values": [{
+        "value": [
+          {"value": "9.4", "qualifiers": ["P"], "dateTime": "2026-09-10T09:45:00+05:30"}
+        ]
+      }]
+    },
+    {
+      "sourceInfo": {
+        "siteName": "Adyar River at Saidapet, Chennai",
+        "siteCode": [{"value": "IN-CWC-ADY-021", "network": "CWC", "agencyCode": "CWC"}],
+        "geoLocation": {"geogLocation": {"srs": "EPSG:4326", "latitude": 13.0244, "longitude": 80.2237}}
+      },
+      "variable": {
+        "variableCode": [{"value": "00060", "network": "NWIS", "vocabulary": "NWIS:UnitValues"}],
+        "variableName": "Discharge, cfs",
+        "unit": {"unitCode": "ft3/s"}
+      },
+      "values": [{
+        "value": [
+          {"value": "4380", "qualifiers": ["P"], "dateTime": "2026-09-10T09:45:00+05:30"}
+        ]
+      }]
+    }
+  ]
+}

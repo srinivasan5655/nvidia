@@ -1,0 +1,57 @@
+{
+  "_note": "Illustrative replay fixture shaped like a real api.weather.gov /alerts/active GeoJSON FeatureCollection, re-purposed with Chennai (IMD) monsoon-flooding narrative content for the India demo city. Used when EVIDENCE_MODE=replay.",
+  "records": [
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.356.0.demo-chennai-flood-warning-001",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [80.20, 13.05], [80.28, 13.05], [80.28, 12.96], [80.20, 12.96], [80.20, 13.05]
+        ]]
+      },
+      "properties": {
+        "id": "urn:oid:2.49.0.1.356.0.demo-chennai-flood-warning-001",
+        "areaDesc": "Chennai District, Tamil Nadu; Adyar and Cooum river basins",
+        "geocode": {"SAME": ["TN-CHN-01"], "UGC": ["INTN001"]},
+        "event": "Flash Flood Warning",
+        "severity": "Severe",
+        "certainty": "Observed",
+        "urgency": "Immediate",
+        "sent": "2026-09-10T09:10:00+05:30",
+        "effective": "2026-09-10T09:10:00+05:30",
+        "expires": "2026-09-10T21:00:00+05:30",
+        "headline": "Flash Flood Warning issued for Adyar River and Cooum River corridors, Chennai",
+        "description": "Doppler radar indicated intense monsoon rainfall producing flash flooding along the Adyar River near Velachery and Kotturpuram. Between 180 and 240 mm of rain have fallen in the past 24 hours. Additional rainfall of 80 to 120 mm is possible as the low-pressure system over the Bay of Bengal moves inland.",
+        "instruction": "Do not attempt to cross flooded subways or river crossings. Move to higher ground immediately if in low-lying areas.",
+        "senderName": "India Meteorological Department, Regional Meteorological Centre Chennai"
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.356.0.demo-chennai-heavy-rain-002",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [80.19, 13.06], [80.27, 13.06], [80.27, 12.97], [80.19, 12.97], [80.19, 13.06]
+        ]]
+      },
+      "properties": {
+        "id": "urn:oid:2.49.0.1.356.0.demo-chennai-heavy-rain-002",
+        "areaDesc": "Chennai District, Tamil Nadu; T. Nagar, Mylapore, Saidapet",
+        "geocode": {"SAME": ["TN-CHN-01"], "UGC": ["INTN001"]},
+        "event": "Heavy Rain",
+        "severity": "Moderate",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "sent": "2026-09-10T06:30:00+05:30",
+        "effective": "2026-09-10T06:30:00+05:30",
+        "expires": "2026-09-10T18:30:00+05:30",
+        "headline": "Heavy to very heavy rainfall warning for Chennai city and suburbs",
+        "description": "A well-marked low-pressure area over southwest Bay of Bengal is likely to intensify, bringing heavy to very heavy rainfall to Chennai, Kancheepuram, and Chengalpattu districts over the next 24 hours.",
+        "instruction": "Avoid unnecessary travel. Stay away from stormwater drains and low-lying underpasses.",
+        "senderName": "India Meteorological Department, Regional Meteorological Centre Chennai"
+      }
+    }
+  ]
+}

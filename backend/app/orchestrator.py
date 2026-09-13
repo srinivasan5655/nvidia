@@ -23,6 +23,7 @@ from app.agents.exposure_agent import run_exposure_agent
 from app.agents.openshell_supervisor import run_openshell_supervisor
 from app.agents.policy_verifier import verify_policy
 from app.config import Settings
+from app.decision.counterfactual import generate_counterfactual
 from app.decision.evacuation import compute_evacuation_plan
 from app.decision.insurer_exposure import compute_insurer_exposure
 from app.decision.life_safety import synthesize_life_safety_guidance
@@ -50,6 +51,7 @@ async def run_event_pipeline(
     settings: Settings,
     *,
     label: str,
+    city: str = "houston",
     evidence_mode: str | None = None,
     on_progress: Optional[ProgressCallback] = None,
 ) -> EventRunResult:
@@ -61,7 +63,7 @@ async def run_event_pipeline(
     it never changes what is returned."""
     if evidence_mode is not None and evidence_mode != settings.evidence_mode:
         settings = settings.model_copy(update={"evidence_mode": evidence_mode})
-    bundle = await build_event_bundle(settings, label=label)
+    bundle = await build_event_bundle(settings, label=label, city=city)
     await _emit(on_progress, "evidence_assembled", {"event": bundle})
 
     with governed_scope("lifeshield_event_pipeline", "Agent", metadata={"event_id": bundle.event_id, "label": label}):
@@ -117,12 +119,18 @@ async def run_event_pipeline(
             {"life_safety": life_safety, "insurer_exposure": insurer_exposure, "evacuation_plan": evacuation_plan},
         )
 
+        counterfactual = await generate_counterfactual(
+            bundle, gates, life_safety, insurer_exposure, evacuation_plan, settings
+        )
+        await _emit(on_progress, "counterfactual_ready", {"counterfactual": counterfactual})
+
         result = EventRunResult(
             event=bundle,
             gates=gates,
             life_safety=life_safety,
             evacuation_plan=evacuation_plan,
             insurer_exposure=insurer_exposure,
+            counterfactual=counterfactual,
             overall_status="awaiting_approval" if settings.require_human_approval else "approved",
             approval_status=ApprovalStatus.PENDING if settings.require_human_approval else ApprovalStatus.NOT_REQUIRED,
         )

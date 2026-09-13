@@ -1,0 +1,57 @@
+{
+  "_note": "Illustrative replay fixture shaped like waterservices.usgs.gov /nwis/iv value.timeSeries[] entries, re-purposed with Bangalore lake/drain-gauge narrative content (KSNDMC / BWSSB station names) for the India demo city.",
+  "records": [
+    {
+      "sourceInfo": {
+        "siteName": "Bellandur Lake outfall gauge, Bengaluru",
+        "siteCode": [{"value": "IN-KSNDMC-BEL-009", "network": "KSNDMC", "agencyCode": "KSNDMC"}],
+        "geoLocation": {"geogLocation": {"srs": "EPSG:4326", "latitude": 12.9304, "longitude": 77.6650}}
+      },
+      "variable": {
+        "variableCode": [{"value": "00065", "network": "NWIS", "vocabulary": "NWIS:UnitValues"}],
+        "variableName": "Gage height, ft",
+        "unit": {"unitCode": "ft"}
+      },
+      "values": [{
+        "value": [
+          {"value": "10.6", "qualifiers": ["P"], "dateTime": "2026-09-10T09:30:00+05:30"},
+          {"value": "13.9", "qualifiers": ["P"], "dateTime": "2026-09-10T10:30:00+05:30"}
+        ]
+      }]
+    },
+    {
+      "sourceInfo": {
+        "siteName": "Agara Lake bund gauge, Bengaluru",
+        "siteCode": [{"value": "IN-KSNDMC-AGA-004", "network": "KSNDMC", "agencyCode": "KSNDMC"}],
+        "geoLocation": {"geogLocation": {"srs": "EPSG:4326", "latitude": 12.9236, "longitude": 77.6389}}
+      },
+      "variable": {
+        "variableCode": [{"value": "00065", "network": "NWIS", "vocabulary": "NWIS:UnitValues"}],
+        "variableName": "Gage height, ft",
+        "unit": {"unitCode": "ft"}
+      },
+      "values": [{
+        "value": [
+          {"value": "8.1", "qualifiers": ["P"], "dateTime": "2026-09-10T10:30:00+05:30"}
+        ]
+      }]
+    },
+    {
+      "sourceInfo": {
+        "siteName": "Koramangala-Challaghatta Valley drain at Silk Board, Bengaluru",
+        "siteCode": [{"value": "IN-BWSSB-KC-017", "network": "BWSSB", "agencyCode": "BWSSB"}],
+        "geoLocation": {"geogLocation": {"srs": "EPSG:4326", "latitude": 12.9172, "longitude": 77.6229}}
+      },
+      "variable": {
+        "variableCode": [{"value": "00060", "network": "NWIS", "vocabulary": "NWIS:UnitValues"}],
+        "variableName": "Discharge, cfs",
+        "unit": {"unitCode": "ft3/s"}
+      },
+      "values": [{
+        "value": [
+          {"value": "3860", "qualifiers": ["P"], "dateTime": "2026-09-10T10:30:00+05:30"}
+        ]
+      }]
+    }
+  ]
+}
