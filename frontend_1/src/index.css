@@ -175,6 +175,39 @@ body::before {
   animation: ai-glow 2.2s ease-in-out infinite;
 }
 
+/* NVIDIA-service chip glow (AiBadge's `services` pills) — same quiet pulse
+   as ai-glow, but in NVIDIA's own brand green (--color-primary) instead of
+   the AI-Generated pill's cyan-violet, so a service chip reads as "NVIDIA
+   stack" at a glance without competing with the AI-Generated marker next
+   to it. */
+@keyframes nvidia-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 0.5px rgba(118, 185, 0, 0.3), 0 0 0 1px rgba(118, 185, 0, 0.2) inset;
+  }
+  50% {
+    box-shadow: 0 0 10px 2px rgba(118, 185, 0, 0.55), 0 0 0 1px rgba(118, 185, 0, 0.35) inset;
+  }
+}
+.animate-nvidia-glow {
+  animation: nvidia-glow 2.2s ease-in-out infinite;
+}
+
+/* NeMo Guardrails' own marker (SMS console) — same pulse, accent-purple to
+   match the BLOCKED log entries it's associated with elsewhere in the app. */
+@keyframes guardrails-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 0.5px rgba(149, 47, 198, 0.3), 0 0 0 1px rgba(149, 47, 198, 0.2) inset;
+  }
+  50% {
+    box-shadow: 0 0 10px 2px rgba(149, 47, 198, 0.55), 0 0 0 1px rgba(149, 47, 198, 0.35) inset;
+  }
+}
+.animate-guardrails-glow {
+  animation: guardrails-glow 2.2s ease-in-out infinite;
+}
+
 @keyframes scan {
   0% {
     transform: translateX(-100%);

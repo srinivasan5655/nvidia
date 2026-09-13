@@ -6,7 +6,7 @@ import { Button } from "../common/Button";
 import { AiBadge } from "../common/AiBadge";
 import { Spinner } from "../common/States";
 import { IconCloudRain, IconShieldCheck, IconClipboardCheck, IconHandRaised, IconMapPin, IconArrowRight } from "../common/Icons";
-import { fmtCurrency } from "../../lib/format";
+import { fmtCurrency, distinctCitedSources } from "../../lib/format";
 import type { RunState } from "../../hooks/useEventRun";
 import type { GateName } from "../../lib/types";
 import type { ViewId } from "../../App";
@@ -186,6 +186,7 @@ export function HomeGuidedView({
   const blocked = state.overallStatus === "blocked";
   const isDegraded = state.lifeSafety?.headline.startsWith("[LLM unavailable]") ?? false;
   const headline = state.lifeSafety?.headline.replace("[LLM unavailable] ", "");
+  const sourceCount = distinctCitedSources(state.event?.items, state.lifeSafety?.citing_evidence);
   const nearestRoute = state.evacuationPlan?.routes[0];
   const showRecommendation = event && !blocked && gatesDone;
   const showConfirm = state.phase === "complete" && !blocked && state.overallStatus === "awaiting_approval";
@@ -264,7 +265,19 @@ export function HomeGuidedView({
             <p>Working out the safest thing to do…</p>
           ) : (
             <div className="flex flex-col gap-4">
-              {!isDegraded && <AiBadge model={state.lifeSafety.model_used} className="self-start" />}
+              {!isDegraded && (
+                <AiBadge
+                  model={state.lifeSafety.model_used}
+                  services={["NIM", "Switchyard", "Relay"]}
+                  className="self-start"
+                />
+              )}
+              {!isDegraded && sourceCount > 1 && (
+                <p className="text-xs text-stone">
+                  This combines what <span className="font-bold text-body">{sourceCount} different</span> weather
+                  and flood reports are saying — even where they don't fully agree — into one clear answer.
+                </p>
+              )}
               <p className="text-xl font-extrabold text-ink">{headline}</p>
               {state.lifeSafety.guidance_points.slice(0, 4).length > 0 && (
                 <ul className="flex flex-col gap-2">

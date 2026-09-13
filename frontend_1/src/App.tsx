@@ -48,6 +48,11 @@ export default function App() {
     );
   };
 
+  const onRunRedTeam = () => {
+    const eventName = HISTORICAL_EVENT_LABEL[city];
+    run(`${eventName} (simulated contradiction)`, evidenceMode, city, true);
+  };
+
   const jumpToEvidence = (ids: string[]) => {
     setEvidenceFilter(ids);
     setActiveView("evidence");
@@ -93,6 +98,7 @@ export default function App() {
               evidenceMode={evidenceMode}
               onEvidenceModeChange={setEvidenceMode}
               onJumpToEvidence={jumpToEvidence}
+              onRunRedTeam={onRunRedTeam}
             />
           )}
           {activeView === "observability" && <ObservabilityView state={state} config={config} />}

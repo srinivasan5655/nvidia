@@ -115,29 +115,38 @@ export function useEventRun() {
   const cleanupRef = useRef<() => void>(() => {});
   const [approving, setApproving] = useReducer((_: boolean, v: boolean) => v, false);
 
-  const run = useCallback((label: string, evidenceMode: "replay" | "live" = "replay", city: string = "houston") => {
-    cleanupRef.current();
-    dispatch({ type: "START" });
-    cleanupRef.current = streamReplay(
-      label,
-      {
-        onEvidenceAssembled: (p) => dispatch({ type: "EVIDENCE", event: p.event }),
-        onGate: (p) => dispatch({ type: "GATE", gate: p.gate }),
-        onOutputsReady: (p) =>
-          dispatch({
-            type: "OUTPUTS",
-            lifeSafety: p.life_safety,
-            insurerExposure: p.insurer_exposure,
-            evacuationPlan: p.evacuation_plan,
-          }),
-        onCounterfactualReady: (p) => dispatch({ type: "COUNTERFACTUAL", counterfactual: p.counterfactual }),
-        onComplete: (p) => dispatch({ type: "COMPLETE", result: p.result }),
-        onError: (err) => dispatch({ type: "ERROR", message: err instanceof Error ? err.message : String(err) }),
-      },
-      evidenceMode,
-      city,
-    );
-  }, []);
+  const run = useCallback(
+    (
+      label: string,
+      evidenceMode: "replay" | "live" = "replay",
+      city: string = "houston",
+      injectContradiction: boolean = false,
+    ) => {
+      cleanupRef.current();
+      dispatch({ type: "START" });
+      cleanupRef.current = streamReplay(
+        label,
+        {
+          onEvidenceAssembled: (p) => dispatch({ type: "EVIDENCE", event: p.event }),
+          onGate: (p) => dispatch({ type: "GATE", gate: p.gate }),
+          onOutputsReady: (p) =>
+            dispatch({
+              type: "OUTPUTS",
+              lifeSafety: p.life_safety,
+              insurerExposure: p.insurer_exposure,
+              evacuationPlan: p.evacuation_plan,
+            }),
+          onCounterfactualReady: (p) => dispatch({ type: "COUNTERFACTUAL", counterfactual: p.counterfactual }),
+          onComplete: (p) => dispatch({ type: "COMPLETE", result: p.result }),
+          onError: (err) => dispatch({ type: "ERROR", message: err instanceof Error ? err.message : String(err) }),
+        },
+        evidenceMode,
+        city,
+        injectContradiction,
+      );
+    },
+    [],
+  );
 
   const approve = useCallback(
     async (decision: "approved" | "rejected", note?: string) => {

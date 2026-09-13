@@ -92,3 +92,50 @@ async def send_demo_sms(message: str, settings: Settings) -> SmsSendResult:
     except httpx.HTTPError as exc:
         logger.warning("Twilio send request failed: %s", exc)
         return SmsSendResult(sent=False, reason="network_error", detail=str(exc), to_number_masked=recipient_masked)
+
+
+async def send_test_template(settings: Settings) -> SmsSendResult:
+    """Sends Twilio's own pre-approved trial demo template ('Appointment
+    Reminders') instead of real message content — the ONLY message a trial
+    Twilio account can deliver to an Indian number, since India's TRAI
+    requires DLT-registered sender IDs/templates for free-form A2P SMS
+    content (a carrier-level restriction, not a Twilio one; every provider
+    enforces it the same way). This exists purely so the demo console can
+    prove the Twilio account/number/recipient wiring genuinely works
+    end-to-end even when the real AI-generated-content path is blocked by
+    that restriction — it bypasses Guardrails entirely since it never
+    carries real message content, and the recipient is still always the one
+    preconfigured settings.sms_demo_recipient, same as every other send."""
+    if not is_configured(settings):
+        return SmsSendResult(
+            sent=False,
+            reason="not_configured",
+            detail="Twilio credentials and/or SMS_DEMO_RECIPIENT are not set on the backend (.env).",
+        )
+
+    recipient_masked = mask_number(settings.sms_demo_recipient)
+    url = f"{TWILIO_API_BASE}/Accounts/{settings.twilio_account_sid}/Messages.json"
+    data = {"To": settings.sms_demo_recipient, "From": settings.twilio_from_number, "Body": "sms_appointment_reminders"}
+
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+            resp = await client.post(
+                url, data=data, auth=(settings.twilio_account_sid, settings.twilio_auth_token)
+            )
+        if resp.status_code >= 400:
+            detail = resp.json().get("message", resp.text) if resp.content else resp.text
+            logger.warning("Twilio test-template send failed (%s): %s", resp.status_code, detail)
+            return SmsSendResult(
+                sent=False, reason="twilio_error", detail=str(detail), to_number_masked=recipient_masked
+            )
+        payload = resp.json()
+        return SmsSendResult(
+            sent=True,
+            reason="test_template",
+            detail="Twilio's pre-approved trial demo template — not real message content.",
+            to_number_masked=recipient_masked,
+            provider_sid=payload.get("sid"),
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("Twilio test-template send request failed: %s", exc)
+        return SmsSendResult(sent=False, reason="network_error", detail=str(exc), to_number_masked=recipient_masked)

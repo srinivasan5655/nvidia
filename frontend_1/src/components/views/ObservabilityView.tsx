@@ -27,7 +27,11 @@ export function ObservabilityView({ state, config }: { state: RunState; config: 
           </p>
         </div>
         <div className="ml-auto">
-          <Badge tone={relayEnabled ? "good" : "neutral"} dot={relayEnabled ? "#0ca30c" : undefined}>
+          <Badge
+            tone={relayEnabled ? "good" : "neutral"}
+            dot={relayEnabled ? "#0ca30c" : undefined}
+            className={relayEnabled ? "animate-nvidia-glow" : undefined}
+          >
             Relay {relayEnabled ? "On" : "Off"}
           </Badge>
         </div>

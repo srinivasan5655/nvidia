@@ -5,7 +5,7 @@ import { AiBadge } from "../../common/AiBadge";
 import { GATE_LABELS, fmtDateTime } from "../../../lib/format";
 import type { EvidenceVerifierDetails, GateResult, OpenshellSupervisorDetails, PolicyVerifierDetails } from "../../../lib/types";
 
-function EvidenceVerifierBreakdown({ d }: { d: EvidenceVerifierDetails }) {
+function EvidenceVerifierBreakdown({ d, onViewIds }: { d: EvidenceVerifierDetails; onViewIds?: (ids: string[]) => void }) {
   const rows: [string, number][] = [
     ["Source score × 0.4", d.source_score],
     ["Freshness score × 0.3", d.freshness_score],
@@ -13,6 +13,14 @@ function EvidenceVerifierBreakdown({ d }: { d: EvidenceVerifierDetails }) {
   ];
   return (
     <div className="mt-3 space-y-2">
+      <div className="text-xs text-stone">
+        Sources present:{" "}
+        {d.sources_present.map((s) => (
+          <span key={s} className="mr-1.5 font-mono text-body">
+            {s}
+          </span>
+        ))}
+      </div>
       {rows.map(([label, v]) => (
         <div key={label} className="flex items-center gap-2 text-xs">
           <span className="w-40 shrink-0 text-stone">{label}</span>
@@ -22,12 +30,28 @@ function EvidenceVerifierBreakdown({ d }: { d: EvidenceVerifierDetails }) {
           <span className="w-10 shrink-0 text-right font-mono text-body">{v.toFixed(2)}</span>
         </div>
       ))}
-      {d.stale_items.length > 0 && (
-        <div className="text-xs text-[#fab219]">{d.stale_items.length} stale item(s) excluded from full trust</div>
-      )}
-      {d.out_of_area_items.length > 0 && (
-        <div className="text-xs text-[#fab219]">{d.out_of_area_items.length} item(s) outside the event footprint</div>
-      )}
+      {d.stale_items.length > 0 &&
+        (onViewIds ? (
+          <button
+            onClick={() => onViewIds(d.stale_items)}
+            className="text-xs text-[#fab219] underline underline-offset-2 hover:text-[#ffcf6b]"
+          >
+            {d.stale_items.length} stale item(s) excluded from full trust →
+          </button>
+        ) : (
+          <div className="text-xs text-[#fab219]">{d.stale_items.length} stale item(s) excluded from full trust</div>
+        ))}
+      {d.out_of_area_items.length > 0 &&
+        (onViewIds ? (
+          <button
+            onClick={() => onViewIds(d.out_of_area_items)}
+            className="block text-xs text-[#fab219] underline underline-offset-2 hover:text-[#ffcf6b]"
+          >
+            {d.out_of_area_items.length} item(s) outside the event footprint →
+          </button>
+        ) : (
+          <div className="text-xs text-[#fab219]">{d.out_of_area_items.length} item(s) outside the event footprint</div>
+        ))}
     </div>
   );
 }
@@ -54,7 +78,7 @@ function OpenshellBreakdown({ d }: { d: OpenshellSupervisorDetails }) {
           Estimated water depth: <span className="font-mono text-body">{ev.estimated_water_depth_ft} ft</span>
         </div>
       )}
-      <AiBadge />
+      <AiBadge services={d.sandboxed ? ["NIM Vision", "OpenShell", "Relay"] : ["NIM Vision", "Relay"]} />
       <p className="text-stone">{ev.narrative}</p>
       <div className="text-[10px] uppercase tracking-wide text-stone">
         Sandboxed: {d.sandboxed ? "Yes (OpenShell)" : "No (in-process)"}
@@ -102,10 +126,12 @@ export function GateDetailPanel({
   gate,
   evidenceCountLabel,
   onViewEvidence,
+  onViewIds,
 }: {
   gate: GateResult;
   evidenceCountLabel: string;
   onViewEvidence: () => void;
+  onViewIds?: (ids: string[]) => void;
 }) {
   return (
     <Card corner>
@@ -116,7 +142,9 @@ export function GateDetailPanel({
       />
       <p className="text-sm text-body">{gate.reasoning}</p>
 
-      {gate.gate_name === "evidence_verifier" && <EvidenceVerifierBreakdown d={gate.details as EvidenceVerifierDetails} />}
+      {gate.gate_name === "evidence_verifier" && (
+        <EvidenceVerifierBreakdown d={gate.details as EvidenceVerifierDetails} onViewIds={onViewIds} />
+      )}
       {gate.gate_name === "openshell_supervisor" && <OpenshellBreakdown d={gate.details as OpenshellSupervisorDetails} />}
       {gate.gate_name === "policy_verifier" && <PolicyBreakdown d={gate.details as PolicyVerifierDetails} />}
 

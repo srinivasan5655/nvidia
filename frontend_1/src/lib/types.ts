@@ -38,6 +38,7 @@ export interface EventBundle {
   created_at: string;
   items: EvidenceItem[];
   field_image_path: string | null;
+  red_team_injected: boolean;
 }
 
 export type GateStatus = "passed" | "blocked" | "degraded";

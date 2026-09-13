@@ -33,6 +33,7 @@ export function SmsConsoleView({ state }: { state: RunState }) {
   const [draftInfo, setDraftInfo] = useState<{ model: string; language: string } | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendingTestTemplate, setSendingTestTemplate] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
 
   const headline = state.lifeSafety?.headline.replace("[LLM unavailable] ", "");
@@ -98,6 +99,36 @@ export function SmsConsoleView({ state }: { state: RunState }) {
     }
   };
 
+  // Trial Twilio accounts can only deliver free-form SMS content to Indian
+  // numbers after DLT template registration (a real, multi-day regulatory
+  // process — not something this app can do for you). This proves the
+  // Twilio account/number/recipient wiring genuinely works end-to-end using
+  // Twilio's own pre-approved trial demo template instead of real content,
+  // for exactly that situation.
+  const sendTestTemplate = async () => {
+    setSendingTestTemplate(true);
+    try {
+      const result = await api.smsSendTestTemplate();
+      setLog((prev) => [
+        {
+          id: crypto.randomUUID(),
+          ts: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          message: "[Twilio trial demo template — not real content] Reminder: Appt Tue Oct 29, 3:00 PM…",
+          sent: result.sent,
+          blocked: false,
+          degraded: false,
+          detail: result.sent
+            ? `Delivered to ${result.to_number_masked ?? "recipient"} (sid ${result.provider_sid ?? "n/a"}) — proves the Twilio wiring works even though real content is blocked for this number.`
+            : (result.detail ?? result.reason ?? "Send failed"),
+        },
+        ...prev,
+      ]);
+      refetch();
+    } finally {
+      setSendingTestTemplate(false);
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 pb-8">
       <div className="flex items-center gap-3">
@@ -126,8 +157,19 @@ export function SmsConsoleView({ state }: { state: RunState }) {
         ) : (
           <Badge tone="warning">Not configured — add TWILIO_* and SMS_DEMO_RECIPIENT to backend/.env</Badge>
         )}
+        {status?.configured && (
+          <Button
+            variant="outline"
+            onClick={sendTestTemplate}
+            loading={sendingTestTemplate}
+            className="h-8 px-3 text-[11px]"
+            title="Sends Twilio's pre-approved trial demo template instead of real content — useful when the recipient's country (e.g. India) blocks free-form SMS until DLT templates are registered."
+          >
+            Send Test Template
+          </Button>
+        )}
         {status?.guardrails_enabled && (
-          <span className="ml-auto flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-accent-purple">
+          <span className="animate-guardrails-glow ml-auto flex items-center gap-1.5 rounded-full border border-accent-purple/40 bg-accent-purple/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-accent-purple">
             <span className="h-1.5 w-1.5 rounded-full bg-accent-purple shadow-[0_0_6px_1px_rgba(149,47,198,0.7)]" />
             Protected by NeMo Guardrails
           </span>
@@ -138,7 +180,7 @@ export function SmsConsoleView({ state }: { state: RunState }) {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold uppercase tracking-wide text-mute">Message</span>
-            {isAiDraft && <AiBadge model={draftInfo?.model} />}
+            {isAiDraft && <AiBadge model={draftInfo?.model} services={["NIM", "Switchyard", "Relay"]} />}
           </div>
           <div className="flex items-center gap-2">
             <label className="text-[11px] font-bold uppercase tracking-wide text-mute">Language</label>
@@ -222,7 +264,7 @@ export function SmsConsoleView({ state }: { state: RunState }) {
                     <span>
                       [{entry.ts}] {entry.blocked ? "BLOCKED" : entry.sent ? "SENT" : "FAILED"}
                     </span>
-                    {entry.blocked && <AiBadge />}
+                    {entry.blocked && <AiBadge services={["NeMo Guardrails"]} />}
                   </div>
                   <div className="mt-1 text-body">{entry.message}</div>
                   <div className="mt-1 text-stone">{entry.detail}</div>

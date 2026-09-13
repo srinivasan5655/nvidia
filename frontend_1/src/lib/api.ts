@@ -46,7 +46,12 @@ export const api = {
 
   getEvent: (eventId: string) => fetch(`/api/v1/events/${eventId}`).then((r) => jsonOrThrow<EventRunResult>(r)),
 
-  replay: (body: { label?: string; city?: string; evidence_mode?: "replay" | "live" | null }) =>
+  replay: (body: {
+    label?: string;
+    city?: string;
+    evidence_mode?: "replay" | "live" | null;
+    inject_contradiction?: boolean;
+  }) =>
     fetch("/api/v1/events/replay", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,6 +88,11 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => jsonOrThrow<SmsDraftResult>(r)),
+
+  smsSendTestTemplate: () =>
+    fetch("/api/v1/notifications/sms/send-test-template", { method: "POST" }).then((r) =>
+      jsonOrThrow<SmsSendResult>(r),
+    ),
 };
 
 export interface ReplayProgressHandlers {
@@ -105,6 +115,7 @@ export function streamReplay(
   handlers: ReplayProgressHandlers,
   evidenceMode: "replay" | "live" = "replay",
   city: string = "houston",
+  injectContradiction: boolean = false,
 ): () => void {
   let settled = false;
   let es: EventSource | null = null;
@@ -114,7 +125,12 @@ export function streamReplay(
     settled = true;
     es?.close();
     try {
-      const result = await api.replay({ label, city, evidence_mode: evidenceMode });
+      const result = await api.replay({
+        label,
+        city,
+        evidence_mode: evidenceMode,
+        inject_contradiction: injectContradiction,
+      });
       handlers.onComplete?.({ result });
     } catch (err) {
       handlers.onError?.(err ?? reason);
@@ -122,7 +138,7 @@ export function streamReplay(
   };
 
   try {
-    const url = `/api/v1/events/replay/stream?label=${encodeURIComponent(label)}&city=${city}&evidence_mode=${evidenceMode}`;
+    const url = `/api/v1/events/replay/stream?label=${encodeURIComponent(label)}&city=${city}&evidence_mode=${evidenceMode}&inject_contradiction=${injectContradiction}`;
     es = new EventSource(url);
 
     // 220s: worst case runs 4 sequential DeepAgents attempts (vision,

@@ -57,7 +57,7 @@ export function VisionSpecialistCard({ gate }: { gate: GateResult | undefined })
               </div>
             )}
             <div className="mb-1.5">
-              <AiBadge />
+              <AiBadge services={details?.sandboxed ? ["NIM Vision", "OpenShell", "Relay"] : ["NIM Vision", "Relay"]} />
             </div>
             <p className="text-xs text-body">{ev.narrative}</p>
           </div>

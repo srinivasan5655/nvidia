@@ -37,7 +37,7 @@ export function EvacuationPlanCard({ plan }: { plan: EvacuationPlan | null }) {
           <Badge tone={plan.agent_harness === "deepagents" ? "primary" : "neutral"}>
             {plan.agent_harness === "deepagents" ? "Evacuation Agent (DeepAgents)" : "Direct calculation"}
           </Badge>
-          {plan.narrative && <AiBadge />}
+          {plan.narrative && <AiBadge services={["NIM", "DeepAgents", "Relay"]} />}
         </div>
         <p className="flex-1 text-xs text-body">
           {plan.narrative || "The Evacuation Agent's DeepAgents call fell back this run — routes below are still the same deterministic OSRM routing, just without an agent-authored dispatcher summary."}

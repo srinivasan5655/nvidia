@@ -133,3 +133,16 @@ export function vulnerabilityColor(v: number): string {
   if (v >= 0.5) return "#fab219";
   return "#0ca30c";
 }
+
+/** How many DISTINCT sources back a given narrative's citing_evidence list —
+ * used to make "synthesized across N independent sources" a real, computed
+ * number rather than a marketing line, since it's exactly what
+ * evidence_verifier already counted before the LLM ever ran. */
+export function distinctCitedSources(
+  items: { item_id: string; source: string }[] | undefined,
+  citingIds: string[] | undefined,
+): number {
+  if (!items || !citingIds?.length) return 0;
+  const cited = new Set(citingIds);
+  return new Set(items.filter((i) => cited.has(i.item_id)).map((i) => i.source)).size;
+}

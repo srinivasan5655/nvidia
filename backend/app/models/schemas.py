@@ -68,6 +68,11 @@ class EventBundle(BaseModel):
     created_at: datetime = Field(default_factory=now_utc)
     items: list[EvidenceItem] = Field(default_factory=list)
     field_image_path: Optional[str] = None
+    red_team_injected: bool = False
+    """True when this bundle was deliberately mutated by the 'Simulate
+    Contradiction' red-team path (see orchestrator._apply_red_team_contradiction)
+    — every downstream gate still runs its real, unmodified deterministic
+    logic against this bundle; only the evidence itself was altered."""
 
     def sources_present(self) -> set[EvidenceSource]:
         return {i.source for i in self.items}
@@ -233,6 +238,10 @@ class ReplayEventRequest(BaseModel):
     city: str = "houston"  # "houston" | "chennai" | "bangalore"
     evidence_mode: Literal["replay", "live"] | None = None
     """Per-request override of the server-default evidence_mode. None = use server default."""
+    inject_contradiction: bool = False
+    """Red-team demo flag: simulate 4 of 5 hazard feeds going silent and the
+    remaining one arriving stale, then run the real evidence_verifier/
+    confidence_gate against that — see orchestrator._apply_red_team_contradiction."""
 
 
 class ApprovalRequest(BaseModel):

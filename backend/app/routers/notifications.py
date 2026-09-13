@@ -42,3 +42,12 @@ async def sms_status() -> dict:
 async def sms_send(request: SmsSendRequest) -> SmsSendResult:
     settings = get_settings()
     return await sms.send_demo_sms(request.message, settings)
+
+
+@router.post("/sms/send-test-template", response_model=SmsSendResult)
+async def sms_send_test_template() -> SmsSendResult:
+    """Sends Twilio's pre-approved trial demo template instead of real
+    content — see sms.send_test_template's docstring for why this exists
+    (India's TRAI DLT restriction on free-form SMS to Indian numbers)."""
+    settings = get_settings()
+    return await sms.send_test_template(settings)

@@ -58,7 +58,7 @@ export function WhatIfView({ state, city }: { state: RunState; city: CityKey }) 
               <div className="text-sm font-bold uppercase tracking-wide text-mute">
                 Counterfactual for your last check ({state.event?.city_label})
               </div>
-              <AiBadge model={state.counterfactual.model_used} />
+              <AiBadge model={state.counterfactual.model_used} services={["NIM", "Switchyard", "Relay"]} />
             </div>
             <p className="text-base leading-relaxed text-body">{state.counterfactual.narrative}</p>
           </Card>
@@ -136,7 +136,7 @@ export function WhatIfView({ state, city }: { state: RunState; city: CityKey }) 
             <div className="text-sm font-bold uppercase tracking-wide text-mute">
               Counterfactual for your last check ({state.event.city_label})
             </div>
-            <AiBadge model={state.counterfactual.model_used} />
+            <AiBadge model={state.counterfactual.model_used} services={["NIM", "Switchyard", "Relay"]} />
           </div>
           <p className="text-base leading-relaxed text-body">{state.counterfactual.narrative}</p>
         </Card>

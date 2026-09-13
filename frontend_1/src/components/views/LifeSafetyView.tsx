@@ -3,7 +3,7 @@ import { Badge } from "../common/Badge";
 import { AiBadge } from "../common/AiBadge";
 import { ConfidenceBar } from "../common/ConfidenceBar";
 import { EmptyState } from "../common/States";
-import { GATE_LABELS } from "../../lib/format";
+import { GATE_LABELS, distinctCitedSources } from "../../lib/format";
 import type { RunState } from "../../hooks/useEventRun";
 
 /** Guidance confidence is `min(gate confidences)` on the backend (see
@@ -43,6 +43,7 @@ export function LifeSafetyView({
   }
 
   const isDegraded = ls.headline.startsWith("[LLM unavailable]");
+  const sourceCount = distinctCitedSources(state.event?.items, ls.citing_evidence);
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,7 +60,7 @@ export function LifeSafetyView({
           <div className="text-[10px] font-bold uppercase tracking-wider text-mute">Headline Guidance</div>
           {!isDegraded && ls.model_used && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <AiBadge />
+              <AiBadge services={["NIM", "Switchyard", "Relay"]} />
               <Badge tone={ls.agent_harness === "deepagents" ? "primary" : "neutral"}>
                 {ls.agent_harness === "deepagents" ? "Hazard Agent" : "Direct call"}
               </Badge>
@@ -70,6 +71,12 @@ export function LifeSafetyView({
             </div>
           )}
         </div>
+        {!isDegraded && sourceCount > 1 && (
+          <p className="mb-2 text-xs text-stone">
+            Synthesized across <span className="font-bold text-body">{sourceCount} independent, possibly-disagreeing</span>{" "}
+            evidence sources into one coherent instruction — see Citing Evidence below.
+          </p>
+        )}
         <h2 className="mb-3 text-2xl font-extrabold leading-tight text-ink">
           {isDegraded ? ls.headline.replace("[LLM unavailable] ", "") : ls.headline}
         </h2>

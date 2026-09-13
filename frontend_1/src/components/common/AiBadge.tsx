@@ -8,15 +8,40 @@ import { IconRobot } from "./Icons";
  * ambiguous which on-screen content came from a model versus deterministic
  * math. A muted violet-cyan + a quiet pulsing glow is used nowhere else in
  * the chrome, so it's still recognizable at a glance without shouting over
- * the app's green/status badge palette. */
-export function AiBadge({ model, className = "" }: { model?: string; className?: string }) {
+ * the app's green/status badge palette.
+ *
+ * `services` names the specific NVIDIA stack components that actually
+ * produced this piece of content (e.g. ["NIM", "Switchyard", "Relay"]) —
+ * rendered as small chips in the app's own primary green (NVIDIA's brand
+ * color, already used for this app's own identity elsewhere) so it reads
+ * as "powered by NVIDIA" rather than blending into the AI-Generated pill's
+ * cyan-violet tone. Pass only the services genuinely exercised for THIS
+ * output, not every service the app has anywhere. */
+export function AiBadge({
+  model,
+  services,
+  className = "",
+}: {
+  model?: string;
+  services?: string[];
+  className?: string;
+}) {
   return (
-    <span
-      className={`animate-ai-glow inline-flex items-center gap-1.5 rounded-full border border-[#7dd3fc]/40 bg-gradient-to-r from-[#7dd3fc]/10 to-[#a78bfa]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#c4d9f7] ${className}`}
-    >
-      <IconRobot className="h-3.5 w-3.5 shrink-0" />
-      AI-Generated
-      {model && <span className="font-mono normal-case tracking-normal text-[#c4d9f7]/60">· {model}</span>}
+    <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+      <span className="animate-ai-glow inline-flex items-center gap-1.5 rounded-full border border-[#7dd3fc]/40 bg-gradient-to-r from-[#7dd3fc]/10 to-[#a78bfa]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#c4d9f7]">
+        <IconRobot className="h-3.5 w-3.5 shrink-0" />
+        AI-Generated
+        {model && <span className="font-mono normal-case tracking-normal text-[#c4d9f7]/60">· {model}</span>}
+      </span>
+      {services?.map((s) => (
+        <span
+          key={s}
+          className="animate-nvidia-glow rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary"
+          title={`Powered by NVIDIA ${s}`}
+        >
+          {s}
+        </span>
+      ))}
     </span>
   );
 }

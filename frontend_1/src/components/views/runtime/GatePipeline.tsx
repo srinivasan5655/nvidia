@@ -60,7 +60,7 @@ export function GatePipeline({
                 )}
               </div>
               <div className="mb-2 text-sm font-bold text-ink">{GATE_LABELS[name] ?? name}</div>
-              {AI_POWERED_AGENTS.has(name) && <AiBadge className="mb-3" />}
+              {AI_POWERED_AGENTS.has(name) && <AiBadge services={["NIM Vision"]} className="mb-3" />}
               {gate ? (
                 <>
                   <ConfidenceBar value={gate.confidence} label="Confidence" />

@@ -14,11 +14,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Any, Awaitable, Callable, Optional
 
 from app.agents.confidence_gate import check_confidence
 from app.agents.evacuation_agent import run_evacuation_agent
-from app.agents.evidence_verifier import verify_evidence
+from app.agents.evidence_verifier import HAZARD_SOURCES, verify_evidence
 from app.agents.exposure_agent import run_exposure_agent
 from app.agents.openshell_supervisor import run_openshell_supervisor
 from app.agents.policy_verifier import verify_policy
@@ -28,7 +29,7 @@ from app.decision.evacuation import compute_evacuation_plan
 from app.decision.insurer_exposure import compute_insurer_exposure
 from app.decision.life_safety import synthesize_life_safety_guidance
 from app.evidence.builder import build_event_bundle
-from app.models.schemas import ApprovalStatus, EventRunResult, GateResult, GateStatus
+from app.models.schemas import ApprovalStatus, EventBundle, EventRunResult, EvidenceSource, GateResult, GateStatus
 from app.nvidia_runtime.relay_governance import governed_scope
 
 logger = logging.getLogger("lifeshield.orchestrator")
@@ -53,6 +54,7 @@ async def run_event_pipeline(
     label: str,
     city: str = "houston",
     evidence_mode: str | None = None,
+    inject_contradiction: bool = False,
     on_progress: Optional[ProgressCallback] = None,
 ) -> EventRunResult:
     """Run the pipeline. ``evidence_mode`` ('replay' or 'live'), when given,
@@ -60,10 +62,14 @@ async def run_event_pipeline(
     a per-request copy is made so concurrent requests never race on the
     shared Settings singleton. ``on_progress``, when given, is awaited after
     each pipeline stage so a caller (e.g. an SSE route) can stream progress;
-    it never changes what is returned."""
+    it never changes what is returned. ``inject_contradiction`` is the
+    'Simulate Contradiction' red-team demo path — see
+    _apply_red_team_contradiction."""
     if evidence_mode is not None and evidence_mode != settings.evidence_mode:
         settings = settings.model_copy(update={"evidence_mode": evidence_mode})
     bundle = await build_event_bundle(settings, label=label, city=city)
+    if inject_contradiction:
+        bundle = _apply_red_team_contradiction(bundle)
     await _emit(on_progress, "evidence_assembled", {"event": bundle})
 
     with governed_scope("lifeshield_event_pipeline", "Agent", metadata={"event_id": bundle.event_id, "label": label}):
@@ -136,6 +142,29 @@ async def run_event_pipeline(
         )
         await _emit(on_progress, "complete", {"result": result})
         return result
+
+
+def _apply_red_team_contradiction(bundle: EventBundle) -> EventBundle:
+    """'Simulate Contradiction' demo path: keeps only the NWS hazard items
+    (simulating USGS, HCFCD, TranStar and FEMA feeds going silent mid-event)
+    and backdates the surviving reading past the staleness window. This is
+    the ONLY place evidence is ever deliberately altered in this app — the
+    mutated bundle is then run through the exact same unmodified
+    evidence_verifier/confidence_gate math as any real event, so the
+    resulting BLOCKED status and collapsed confidence score are genuine gate
+    output, not a scripted UI state. Non-hazard sources (population_svi,
+    osm_shelter) are left untouched since they aren't part of the
+    "independent sources agree" count in the first place."""
+    kept_source = EvidenceSource.NWS
+    stale_cutoff = timedelta(hours=6)
+    new_items = []
+    for item in bundle.items:
+        if item.source in HAZARD_SOURCES and item.source != kept_source:
+            continue
+        if item.source == kept_source:
+            item = item.model_copy(update={"is_replay": False, "observed_at": item.observed_at - stale_cutoff})
+        new_items.append(item)
+    return bundle.model_copy(update={"items": new_items, "red_team_injected": True})
 
 
 async def _compute_exposure_async(bundle, vision_evidence, confidence, settings):

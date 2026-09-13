@@ -89,7 +89,7 @@ export function InsurerExposureView({ state }: { state: RunState }) {
         />
         {ie.narrative ? (
           <>
-            <AiBadge className="mb-2" />
+            <AiBadge services={["NIM", "DeepAgents", "Relay"]} className="mb-2" />
             <p className="text-sm text-body">{ie.narrative}</p>
           </>
         ) : (
