@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import FIXTURES_DIR, get_settings
 from app.nvidia_runtime.relay_governance import init_relay
-from app.routers import events, notifications, relay
+from app.routers import assistant, eval as eval_router, events, notifications, relay
 
 logging.basicConfig(level=logging.INFO)
 
@@ -39,6 +39,8 @@ app.add_middleware(
 app.include_router(events.router)
 app.include_router(relay.router)
 app.include_router(notifications.router)
+app.include_router(assistant.router)
+app.include_router(eval_router.router)
 
 # Serves app/evidence/fixtures/field_image_flood.jpg (and the other fixture
 # files) so the browser can render the same field image the vision

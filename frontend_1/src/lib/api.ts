@@ -1,10 +1,13 @@
 import type {
+  AssistantAnswer,
+  EvalSuiteResult,
   EventRunResult,
   ProgressComplete,
   ProgressCounterfactualReady,
   ProgressEvidenceAssembled,
   ProgressGate,
   ProgressOutputsReady,
+  ProgressSourceFetching,
   RelayRecord,
   RelayStatus,
   RuntimeConfig,
@@ -93,9 +96,21 @@ export const api = {
     fetch("/api/v1/notifications/sms/send-test-template", { method: "POST" }).then((r) =>
       jsonOrThrow<SmsSendResult>(r),
     ),
+
+  assistantChat: (question: string, eventId: string | null) =>
+    fetch("/api/v1/assistant/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, event_id: eventId }),
+    }).then((r) => jsonOrThrow<AssistantAnswer>(r)),
+
+  evalLast: () => fetch("/api/v1/eval/last").then((r) => (r.status === 404 ? null : jsonOrThrow<EvalSuiteResult>(r))),
+
+  evalRun: () => fetch("/api/v1/eval/run", { method: "POST" }).then((r) => jsonOrThrow<EvalSuiteResult>(r)),
 };
 
 export interface ReplayProgressHandlers {
+  onSourceFetching?: (payload: ProgressSourceFetching) => void;
   onEvidenceAssembled?: (payload: ProgressEvidenceAssembled) => void;
   onGate?: (payload: ProgressGate) => void;
   onOutputsReady?: (payload: ProgressOutputsReady) => void;
@@ -158,6 +173,9 @@ export function streamReplay(
     // wasted GPU time and a confusing double-run, so it's worth avoiding.
     const watchdog = window.setTimeout(() => fallback(new Error("SSE stream timed out")), 220000);
 
+    es.addEventListener("source_fetching", (ev) => {
+      handlers.onSourceFetching?.(JSON.parse((ev as MessageEvent).data));
+    });
     es.addEventListener("evidence_assembled", (ev) => {
       handlers.onEvidenceAssembled?.(JSON.parse((ev as MessageEvent).data));
     });

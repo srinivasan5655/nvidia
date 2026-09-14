@@ -67,7 +67,7 @@ async def run_event_pipeline(
     _apply_red_team_contradiction."""
     if evidence_mode is not None and evidence_mode != settings.evidence_mode:
         settings = settings.model_copy(update={"evidence_mode": evidence_mode})
-    bundle = await build_event_bundle(settings, label=label, city=city)
+    bundle = await build_event_bundle(settings, label=label, city=city, on_progress=on_progress)
     if inject_contradiction:
         bundle = _apply_red_team_contradiction(bundle)
     await _emit(on_progress, "evidence_assembled", {"event": bundle})

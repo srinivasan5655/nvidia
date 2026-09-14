@@ -193,6 +193,19 @@ export interface SmsDraftResult {
   language: string;
 }
 
+export interface AssistantCitation {
+  doc_id: string;
+  title: string;
+  score: number;
+}
+
+export interface AssistantAnswer {
+  answer: string;
+  model_used: string;
+  citations: AssistantCitation[];
+  grounded_in_current_event: boolean;
+}
+
 export interface RuntimeConfig {
   evidence_mode: "replay" | "live";
   runtime_target: "dev" | "prod" | "auto";
@@ -235,6 +248,11 @@ export interface RelayRecord {
 // SSE progress event payloads (backend/app/routers/events.py: /replay/stream)
 export type ProgressStage = "evidence_assembled" | "gate" | "outputs_ready" | "counterfactual_ready" | "complete";
 
+export interface ProgressSourceFetching {
+  source: string;
+  status: "started" | "done" | "failed";
+  item_count?: number;
+}
 export interface ProgressEvidenceAssembled {
   event: EventBundle;
 }
@@ -251,4 +269,32 @@ export interface ProgressCounterfactualReady {
 }
 export interface ProgressComplete {
   result: EventRunResult;
+}
+
+export interface EvalAssertion {
+  name: string;
+  expected: string;
+  actual: string;
+  passed: boolean;
+}
+
+export interface EvalCaseResult {
+  case_id: string;
+  label: string;
+  city: string;
+  passed: boolean;
+  overall_status: string;
+  confidence: number | null;
+  latency_ms: number;
+  assertions: EvalAssertion[];
+  error: string | null;
+}
+
+export interface EvalSuiteResult {
+  run_at: string;
+  total_cases: number;
+  passed_count: number;
+  failed_count: number;
+  avg_latency_ms: number;
+  cases: EvalCaseResult[];
 }

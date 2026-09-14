@@ -273,3 +273,58 @@ class SmsDraftResult(BaseModel):
     message: str
     model_used: str
     language: str
+
+
+class AssistantChatRequest(BaseModel):
+    question: str
+    event_id: str | None = None
+    """If given and a matching run exists, its live state (hazard headline,
+    gate statuses, exposure/evacuation summary) is added to the grounding
+    context alongside the retrieved glossary passages."""
+
+
+class AssistantCitation(BaseModel):
+    doc_id: str
+    title: str
+    score: float
+
+
+class AssistantAnswer(BaseModel):
+    answer: str
+    model_used: str
+    citations: list[AssistantCitation] = Field(default_factory=list)
+    grounded_in_current_event: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Golden-dataset evaluation
+# ---------------------------------------------------------------------------
+
+class EvalAssertion(BaseModel):
+    name: str
+    expected: str
+    actual: str
+    passed: bool
+
+
+class EvalCaseResult(BaseModel):
+    case_id: str
+    label: str
+    city: str
+    passed: bool
+    overall_status: str
+    confidence: float | None = None
+    latency_ms: int
+    assertions: list[EvalAssertion] = Field(default_factory=list)
+    error: str | None = None
+    """Set only if the pipeline itself raised — a real infra failure, not an
+    assertion mismatch. Reported honestly as a failed case either way."""
+
+
+class EvalSuiteResult(BaseModel):
+    run_at: datetime = Field(default_factory=now_utc)
+    total_cases: int
+    passed_count: int
+    failed_count: int
+    avg_latency_ms: int
+    cases: list[EvalCaseResult] = Field(default_factory=list)

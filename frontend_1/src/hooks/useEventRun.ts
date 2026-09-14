@@ -14,9 +14,15 @@ import type {
 
 export type RunPhase = "idle" | "streaming" | "complete" | "error";
 
+export interface SourceStatus {
+  status: "started" | "done" | "failed";
+  itemCount?: number;
+}
+
 export interface RunState {
   phase: RunPhase;
   event: EventBundle | null;
+  sourceStatus: Record<string, SourceStatus>;
   gates: GateResult[];
   lifeSafety: LifeSafetyGuidance | null;
   insurerExposure: InsurerExposureOutput | null;
@@ -33,6 +39,7 @@ export interface RunState {
 const initialState: RunState = {
   phase: "idle",
   event: null,
+  sourceStatus: {},
   gates: [],
   lifeSafety: null,
   insurerExposure: null,
@@ -48,6 +55,7 @@ const initialState: RunState = {
 
 type Action =
   | { type: "START" }
+  | { type: "SOURCE_STATUS"; source: string; status: "started" | "done" | "failed"; itemCount?: number }
   | { type: "EVIDENCE"; event: EventBundle }
   | { type: "GATE"; gate: GateResult }
   | {
@@ -66,6 +74,14 @@ function reducer(state: RunState, action: Action): RunState {
   switch (action.type) {
     case "START":
       return { ...initialState, phase: "streaming", startedAt: Date.now() };
+    case "SOURCE_STATUS":
+      return {
+        ...state,
+        sourceStatus: {
+          ...state.sourceStatus,
+          [action.source]: { status: action.status, itemCount: action.itemCount },
+        },
+      };
     case "EVIDENCE":
       return { ...state, event: action.event };
     case "GATE":
@@ -127,6 +143,8 @@ export function useEventRun() {
       cleanupRef.current = streamReplay(
         label,
         {
+          onSourceFetching: (p) =>
+            dispatch({ type: "SOURCE_STATUS", source: p.source, status: p.status, itemCount: p.item_count }),
           onEvidenceAssembled: (p) => dispatch({ type: "EVIDENCE", event: p.event }),
           onGate: (p) => dispatch({ type: "GATE", gate: p.gate }),
           onOutputsReady: (p) =>

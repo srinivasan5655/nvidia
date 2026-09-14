@@ -1,4 +1,5 @@
 import { RelayObservability } from "./runtime/RelayObservability";
+import { EvalSuiteCard } from "./eval/EvalSuiteCard";
 import { EmptyState } from "../common/States";
 import { Badge } from "../common/Badge";
 import { useRelayStatus, useRelayTrace } from "../../hooks/useBackend";
@@ -36,6 +37,8 @@ export function ObservabilityView({ state, config }: { state: RunState; config: 
           </Badge>
         </div>
       </div>
+
+      <EvalSuiteCard />
 
       {state.phase === "idle" || state.phase === "streaming" ? (
         <EmptyState

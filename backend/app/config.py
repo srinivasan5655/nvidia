@@ -109,6 +109,20 @@ class Settings(BaseSettings):
     # --- Human approval ---
     require_human_approval: bool = True
 
+    # --- NeMo Retriever (assistant chat's grounding embeddings) ---
+    # Same dev/prod split as the reasoning/vision NIM targets above: an
+    # optional self-hosted embedding NIM endpoint (requires a Linux/Docker
+    # host — NeMo Retriever microservices ship as NIM containers, same
+    # constraint as OpenShell) falling back to the hosted build.nvidia.com
+    # embedding endpoint, which needs nothing but nvidia_api_key.
+    nemo_retriever_self_hosted_url: str | None = None
+    # Verified working on this account/build.nvidia.com as of 2026-09-13 —
+    # nvidia/nv-embedqa-e5-v5 (the more commonly documented choice) returned
+    # HTTP 410 Gone (retired), and several other catalog embedding models
+    # 404 ("Function ... Not found for account") the same way
+    # nvidia/neva-22b does elsewhere in this app; this one is confirmed live.
+    nemo_retriever_embed_model: str = "nvidia/nemotron-3-embed-1b"
+
     # --- Demo SMS console (Twilio) ---
     # All optional and unset by default — the SMS console degrades to a
     # clear "not configured" state rather than crashing when these are

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sidebar } from "./components/shell/Sidebar";
 import { Footer } from "./components/shell/Footer";
+import { AssistantPanel } from "./components/shell/AssistantPanel";
 import { HomeGuidedView } from "./components/views/HomeGuidedView";
 import { AlertsView } from "./components/views/AlertsView";
 import { SafePlacesView } from "./components/views/SafePlacesView";
@@ -84,6 +85,7 @@ export default function App() {
               onApprove={approve}
               onNavigate={setActiveView}
               cityName={CITY_INFO[city].short}
+              city={city}
             />
           )}
           {activeView === "alerts" && <AlertsView state={state} />}
@@ -115,6 +117,8 @@ export default function App() {
 
         <Footer />
       </div>
+
+      <AssistantPanel state={state} />
     </div>
   );
 }

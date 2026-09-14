@@ -6,10 +6,57 @@ import { Button } from "../common/Button";
 import { AiBadge } from "../common/AiBadge";
 import { Spinner } from "../common/States";
 import { IconCloudRain, IconShieldCheck, IconClipboardCheck, IconHandRaised, IconMapPin, IconArrowRight } from "../common/Icons";
-import { fmtCurrency, distinctCitedSources } from "../../lib/format";
+import { fmtCurrency, distinctCitedSources, sourceLabelFor } from "../../lib/format";
 import type { RunState } from "../../hooks/useEventRun";
 import type { GateName } from "../../lib/types";
 import type { ViewId } from "../../App";
+import type { CityKey } from "../../lib/types";
+
+// Same seven adapters build_event_bundle fans out to, in that order — see
+// backend/app/evidence/builder.py. Fixed order so the list doesn't jump
+// around as sources resolve out of order (they run concurrently).
+const EVIDENCE_SOURCE_ORDER = ["nws", "usgs", "hcfcd", "transtar", "fema", "population_svi", "osm_shelter"];
+
+/** Live per-source fetch status, replacing a static "Gathering reports…"
+ * string — each source really did just start/finish/fail its own request,
+ * reported by the backend the moment it happens (see builder.py's
+ * _fetch_source), not simulated client-side. */
+function SourceFetchList({ sourceStatus, city }: { sourceStatus: RunState["sourceStatus"]; city: CityKey }) {
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {EVIDENCE_SOURCE_ORDER.map((source) => {
+        const entry = sourceStatus[source];
+        const label = sourceLabelFor(city, source);
+        return (
+          <li key={source} className="flex items-center gap-2.5 text-sm">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+              {!entry ? (
+                <span className="h-1.5 w-1.5 rounded-full bg-hairline-strong" />
+              ) : entry.status === "started" ? (
+                <Spinner size={14} />
+              ) : entry.status === "failed" ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#d03b3b]/80 text-[10px] font-bold text-white">
+                  !
+                </span>
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-on-primary">
+                  ✓
+                </span>
+              )}
+            </span>
+            <span className={entry ? "text-body" : "text-stone"}>
+              Checking {label}
+              {entry?.status === "done" && entry.itemCount !== undefined && (
+                <span className="text-stone"> — {entry.itemCount} report(s)</span>
+              )}
+              {entry?.status === "failed" && <span className="text-[#ff8a8a]"> — unavailable, continuing</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 /** Every technical gate, translated into one plain sentence — no
  * "confidence", "OpenShell", or "policy verifier" anywhere in this view.
@@ -135,6 +182,7 @@ export function HomeGuidedView({
   onApprove,
   onNavigate,
   cityName,
+  city,
 }: {
   state: RunState;
   approving: boolean;
@@ -142,6 +190,7 @@ export function HomeGuidedView({
   onApprove: (decision: "approved" | "rejected", note?: string) => void;
   onNavigate: (v: ViewId) => void;
   cityName: string;
+  city: CityKey;
 }) {
   const [note, setNote] = useState("");
 
@@ -211,7 +260,10 @@ export function HomeGuidedView({
             flooding for {event.city_label}.
           </p>
         ) : (
-          <p>Gathering the latest weather and flood reports for {cityName}…</p>
+          <div className="flex flex-col gap-3">
+            <p className="text-stone">Gathering the latest weather and flood reports for {cityName}…</p>
+            <SourceFetchList sourceStatus={state.sourceStatus} city={city} />
+          </div>
         )}
       </TimelineStep>
 
@@ -226,6 +278,11 @@ export function HomeGuidedView({
             {GATE_ORDER.map((name, i) => {
               const result = state.gates.find((g) => g.gate_name === name);
               const isBad = result && result.status === "blocked";
+              // Gates resolve strictly in order on the backend (see
+              // orchestrator.py) — the one at index state.gates.length is
+              // whichever gate is running right now, so it's real live
+              // status, not a guess.
+              const isActive = !result && state.phase === "streaming" && i === state.gates.length;
               return (
                 <li key={name} className="flex items-center gap-2.5">
                   <span
@@ -235,12 +292,14 @@ export function HomeGuidedView({
                         ? "bg-[#d03b3b] text-white"
                         : result
                           ? "bg-primary text-on-primary"
-                          : "bg-surface-raised text-stone",
+                          : isActive
+                            ? "bg-surface-raised ring-2 ring-primary"
+                            : "bg-surface-raised text-stone",
                     )}
                   >
-                    {result ? (isBad ? "!" : "✓") : i + 1}
+                    {result ? (isBad ? "!" : "✓") : isActive ? <Spinner size={12} /> : i + 1}
                   </span>
-                  <span className={result ? "text-body" : "text-stone"}>{GATE_PLAIN[name]}</span>
+                  <span className={result || isActive ? "text-body" : "text-stone"}>{GATE_PLAIN[name]}</span>
                 </li>
               );
             })}
