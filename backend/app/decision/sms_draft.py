@@ -26,7 +26,7 @@ from app.config import Settings
 from app.models.schemas import SmsDraftResult
 from app.nvidia_runtime import nim_client
 from app.nvidia_runtime.relay_governance import governed_scope
-from app.nvidia_runtime.switchyard_router import resolve_reasoning_target
+from app.nvidia_runtime.switchyard_router import resolve_reasoning_chain
 
 logger = logging.getLogger("lifeshield.sms_draft")
 
@@ -86,13 +86,14 @@ async def draft_sms_message(
     # needs more capability than templating a narrative from evidence
     # that already agrees, which is what "low effort" is tuned for
     # elsewhere in this app.
-    target = resolve_reasoning_target(settings, effort="high")
+    chain = resolve_reasoning_chain(settings, effort="high")
+    target = chain[0]
     with governed_scope(
         "sms_draft_narrative", "Llm", metadata={"model": target.model, "language": language_code}
     ) as handle:
         try:
             raw = await nim_client.chat_completion(
-                target,
+                chain,
                 system=SYSTEM_PROMPT,
                 user=user_prompt,
                 max_tokens=500,

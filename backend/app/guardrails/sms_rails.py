@@ -32,7 +32,8 @@ import logging
 from pathlib import Path
 
 from app.config import Settings
-from app.nvidia_runtime.switchyard_router import resolve_reasoning_target
+from app.nvidia_runtime.openshell_specialist import build_fallback_chat_model
+from app.nvidia_runtime.switchyard_router import resolve_reasoning_chain
 
 logger = logging.getLogger("lifeshield.guardrails")
 
@@ -49,13 +50,8 @@ def _get_rails(settings: Settings):
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
     from nemoguardrails import LLMRails, RailsConfig
 
-    target = resolve_reasoning_target(settings, effort="low")
-    llm = ChatNVIDIA(
-        model=target.model,
-        base_url=target.base_url,
-        api_key=target.api_key or "not-required",
-        timeout=20.0,
-    )
+    chain = resolve_reasoning_chain(settings, effort="low")
+    llm = build_fallback_chat_model(chain, model_cls=ChatNVIDIA, timeout=20.0)
     config = RailsConfig.from_path(str(CONFIG_DIR))
     _rails = LLMRails(config, llm=llm)
     return _rails

@@ -18,7 +18,8 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from app.config import Settings
-from app.nvidia_runtime.switchyard_router import ReasoningEffort, resolve_reasoning_target
+from app.nvidia_runtime.openshell_specialist import build_fallback_chat_model
+from app.nvidia_runtime.switchyard_router import ReasoningEffort, resolve_reasoning_chain
 
 
 class HazardAgentOutput(BaseModel):
@@ -30,18 +31,13 @@ class HazardAgentOutput(BaseModel):
 def _chat_model(settings: Settings, effort: ReasoningEffort):
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-    target = resolve_reasoning_target(settings, effort=effort)
-    # timeout=25: fail fast if the DeepAgents harness is going to fail on
+    chain = resolve_reasoning_chain(settings, effort=effort)
+    # timeout=10: fail fast if the DeepAgents harness is going to fail on
     # this account, so the direct-call fallback isn't delayed. Unlike
     # ChatOpenAI, ChatNVIDIA has no max_retries field at all — passing one
     # gets forwarded into the request body itself, which the NIM endpoint
     # then rejects outright ("Unsupported parameter(s): max_retries").
-    return ChatNVIDIA(
-        model=target.model,
-        base_url=target.base_url,
-        api_key=target.api_key or "not-required",
-        timeout=10.0,
-    )
+    return build_fallback_chat_model(chain, model_cls=ChatNVIDIA, timeout=10.0)
 
 
 async def run_hazard_agent(

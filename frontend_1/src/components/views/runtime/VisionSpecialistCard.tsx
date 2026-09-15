@@ -2,6 +2,7 @@ import { Card, CardHeader } from "../../common/Card";
 import { Badge } from "../../common/Badge";
 import { AiBadge } from "../../common/AiBadge";
 import { EmptyState } from "../../common/States";
+import { apiUrl } from "../../../lib/api";
 import type { GateResult, OpenshellSupervisorDetails } from "../../../lib/types";
 
 const HARNESS_LABELS: Record<string, string> = {
@@ -36,7 +37,7 @@ export function VisionSpecialistCard({ gate }: { gate: GateResult | undefined })
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[160px_1fr]">
           <img
-            src="/static/fixtures/field_image_flood.jpg"
+            src={apiUrl("/static/fixtures/field_image_flood.jpg")}
             alt="Field image analyzed by the vision specialist"
             className="h-40 w-full rounded-sm border border-hairline object-cover sm:h-full"
             onError={(e) => {

@@ -40,9 +40,10 @@ from typing import Any, Iterator, Sequence
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from switchyard import LlmTarget
 
 from app.config import Settings
-from app.nvidia_runtime.switchyard_router import resolve_reasoning_target, resolve_vision_target
+from app.nvidia_runtime.switchyard_router import resolve_reasoning_chain, resolve_vision_chain
 
 logger = logging.getLogger("lifeshield.openshell")
 
@@ -52,9 +53,25 @@ except ImportError:  # pragma: no cover
     openshell = None  # type: ignore
 
 
+def build_fallback_chat_model(chain: Sequence[LlmTarget], *, model_cls: type[BaseChatModel], **kwargs: Any) -> BaseChatModel:
+    """Builds one `model_cls` instance per target in `chain` (same kwargs on
+    each — timeout/max_retries semantics are per call site, not per target)
+    and chains them with LangChain's own `.with_fallbacks()`, its native
+    mechanism for "try the next model on a call failure". This is the
+    DeepAgents-path equivalent of nim_client._with_failover: same
+    primary-then-backup chain (see switchyard_router.resolve_reasoning_chain
+    / resolve_vision_chain), just expressed through the chat-model object
+    every DeepAgents specialist is built from instead of a raw HTTP retry
+    loop. A single-target chain (today's default, no vLLM configured)
+    returns that one model unwrapped — identical to what every caller built
+    by hand before this existed."""
+    models = [model_cls(model=t.model, base_url=t.base_url, api_key=t.api_key or "not-required", **kwargs) for t in chain]
+    return models[0].with_fallbacks(models[1:]) if len(models) > 1 else models[0]
+
+
 def _nim_chat_model(settings: Settings, *, vision: bool = False) -> BaseChatModel:
-    target = resolve_vision_target(settings) if vision else resolve_reasoning_target(settings)
-    return ChatNVIDIA(model=target.model, api_key=target.api_key or "not-required", base_url=target.base_url)
+    chain = resolve_vision_chain(settings) if vision else resolve_reasoning_chain(settings)
+    return build_fallback_chat_model(chain, model_cls=ChatNVIDIA)
 
 
 @contextmanager

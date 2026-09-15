@@ -4,20 +4,35 @@ API), used for both build.nvidia.com (dev) and self-hosted NIM on Curiosity
 v2 (prod). Every call is wrapped in a NeMo Relay LLM scope by the caller
 (see nvidia_runtime/relay_governance.py) — this module never calls the model
 directly outside a Relay scope in agent code paths.
+
+`chat_completion`/`vision_completion` also accept an ordered
+`list[LlmTarget]` (see switchyard_router.resolve_reasoning_chain /
+resolve_vision_chain) for primary/backup failover: a self-hosted vLLM
+target first, build.nvidia.com second. Only connection/timeout/5xx errors
+advance to the next target — a 4xx means the request itself is wrong, and
+retrying it against a different backend would silently mask that bug
+instead of surfacing it.
 """
 from __future__ import annotations
 
 import base64
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
+import openai
 from openai import AsyncOpenAI
 from switchyard import LlmTarget
 
 from app.nvidia_runtime.relay_governance import record_token_usage
 
 logger = logging.getLogger("lifeshield.nim")
+
+# Errors worth retrying on the next target in the chain: the backend is down,
+# slow, or erroring server-side. Anything else (400, 401, 404, ...) is a
+# request/config bug that will fail identically everywhere, so it's left to
+# propagate immediately rather than burning latency on a doomed retry.
+_FAILOVER_EXCEPTIONS = (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError)
 
 
 def _client_for(target: LlmTarget) -> AsyncOpenAI:
@@ -36,8 +51,30 @@ def _record_usage(relay_handle: Any, target: LlmTarget, usage: Any) -> None:
     )
 
 
+def _as_chain(target: "LlmTarget | Sequence[LlmTarget]") -> list[LlmTarget]:
+    return list(target) if isinstance(target, (list, tuple)) else [target]
+
+
+async def _with_failover(targets: "LlmTarget | Sequence[LlmTarget]", call):
+    """Runs `call(target)` against each target in order, advancing to the
+    next one only on _FAILOVER_EXCEPTIONS. Re-raises the last error once the
+    chain is exhausted, so existing callers' try/except degrade logic keeps
+    working unchanged."""
+    chain = _as_chain(targets)
+    for i, target in enumerate(chain):
+        try:
+            return await call(target)
+        except _FAILOVER_EXCEPTIONS as exc:
+            if i + 1 >= len(chain):
+                raise
+            logger.warning(
+                "NIM target %s (%s) failed (%s); failing over to %s.",
+                target.id, target.model, exc, chain[i + 1].id,
+            )
+
+
 async def chat_completion(
-    target: LlmTarget,
+    target: "LlmTarget | Sequence[LlmTarget]",
     *,
     system: str,
     user: str,
@@ -58,26 +95,29 @@ async def chat_completion(
     the API call itself succeeding. If a target model doesn't recognize the
     parameter it's typically ignored, not rejected — kept opt-in regardless
     so a self-hosted prod target's behavior isn't assumed."""
-    client = _client_for(target)
     kwargs: dict = {}
     if disable_thinking:
         kwargs["extra_body"] = {"chat_template_kwargs": {"thinking": False}}
-    resp = await client.chat.completions.create(
-        model=target.model,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
-        **kwargs,
-    )
-    _record_usage(relay_handle, target, resp.usage)
-    return resp.choices[0].message.content or ""
+
+    async def _call(t: LlmTarget) -> str:
+        resp = await _client_for(t).chat.completions.create(
+            model=t.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+        _record_usage(relay_handle, t, resp.usage)
+        return resp.choices[0].message.content or ""
+
+    return await _with_failover(target, _call)
 
 
 async def vision_completion(
-    target: LlmTarget,
+    target: "LlmTarget | Sequence[LlmTarget]",
     *,
     prompt: str,
     image_path: str,
@@ -97,7 +137,6 @@ async def vision_completion(
     support the parameter, the API call raises and the caller's existing
     exception handling degrades the gate — this never introduces a new
     failure mode, only a better-formatted success path."""
-    client = _client_for(target)
     path = Path(image_path)
     if path.exists():
         b64 = base64.b64encode(path.read_bytes()).decode()
@@ -114,11 +153,14 @@ async def vision_completion(
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
 
-    resp = await client.chat.completions.create(
-        model=target.model,
-        messages=[{"role": "user", "content": content}],
-        max_tokens=max_tokens,
-        **kwargs,
-    )
-    _record_usage(relay_handle, target, resp.usage)
-    return resp.choices[0].message.content or ""
+    async def _call(t: LlmTarget) -> str:
+        resp = await _client_for(t).chat.completions.create(
+            model=t.model,
+            messages=[{"role": "user", "content": content}],
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+        _record_usage(relay_handle, t, resp.usage)
+        return resp.choices[0].message.content or ""
+
+    return await _with_failover(target, _call)

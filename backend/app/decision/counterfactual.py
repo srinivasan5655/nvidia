@@ -30,7 +30,7 @@ from app.models.schemas import (
 )
 from app.nvidia_runtime import nim_client
 from app.nvidia_runtime.relay_governance import governed_scope
-from app.nvidia_runtime.switchyard_router import resolve_reasoning_target
+from app.nvidia_runtime.switchyard_router import resolve_reasoning_chain
 
 logger = logging.getLogger("lifeshield.counterfactual")
 
@@ -69,13 +69,14 @@ async def generate_counterfactual(
         )
     )
 
-    target = resolve_reasoning_target(settings, effort="low")
+    chain = resolve_reasoning_chain(settings, effort="low")
+    target = chain[0]
     with governed_scope(
         "counterfactual_narrative", "Llm", metadata={"event_id": bundle.event_id, "model": target.model}
     ) as handle:
         try:
             narrative = await nim_client.chat_completion(
-                target, system=SYSTEM_PROMPT, user=user_prompt, max_tokens=400, disable_thinking=True, relay_handle=handle
+                chain, system=SYSTEM_PROMPT, user=user_prompt, max_tokens=400, disable_thinking=True, relay_handle=handle
             )
             return CounterfactualAnalysis(narrative=narrative.strip(), model_used=target.model)
         except Exception as exc:  # noqa: BLE001 - NIM unreachable/unconfigured -> degrade, don't crash the run

@@ -14,6 +14,21 @@ import type {
   SmsStatus,
 } from "./types";
 
+// Vite's `base` config (see vite.config.ts's PROXY_BASE) only rewrites Vite's
+// own asset/HMR URLs — it does NOT touch hand-written fetch()/EventSource
+// calls, which always resolve against the browser's document origin root.
+// Verified live: under JupyterHub's per-user proxy, a bare fetch("/api/...")
+// landed on https://.../api/... (not the prefixed path) and got swallowed by
+// JupyterHub's own /hub/ catch-all instead of reaching the app. Every request
+// below goes through this helper so the base path is always honored.
+// import.meta.env.BASE_URL is Vite's own resolved `base`, always trailing-
+// slash-terminated, '/' when unset. Exported since it's also needed for
+// hand-written asset URLs elsewhere (e.g. the field-image fixture src in
+// VisionSpecialistCard.tsx), not just fetch() calls.
+export function apiUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+}
+
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -38,13 +53,14 @@ export class ApiError extends Error {
 }
 
 export const api = {
-  health: () => fetch("/health").then((r) => jsonOrThrow<{ status: string; service: string }>(r)),
+  health: () => fetch(apiUrl("/health")).then((r) => jsonOrThrow<{ status: string; service: string }>(r)),
 
-  config: () => fetch("/api/v1/config").then((r) => jsonOrThrow<RuntimeConfig>(r)),
+  config: () => fetch(apiUrl("/api/v1/config")).then((r) => jsonOrThrow<RuntimeConfig>(r)),
 
-  listEvents: () => fetch("/api/v1/events").then((r) => jsonOrThrow<EventRunResult[]>(r)),
+  listEvents: () => fetch(apiUrl("/api/v1/events")).then((r) => jsonOrThrow<EventRunResult[]>(r)),
 
-  getEvent: (eventId: string) => fetch(`/api/v1/events/${eventId}`).then((r) => jsonOrThrow<EventRunResult>(r)),
+  getEvent: (eventId: string) =>
+    fetch(apiUrl(`/api/v1/events/${eventId}`)).then((r) => jsonOrThrow<EventRunResult>(r)),
 
   replay: (body: {
     label?: string;
@@ -52,45 +68,45 @@ export const api = {
     evidence_mode?: "replay" | "live" | null;
     inject_contradiction?: boolean;
   }) =>
-    fetch("/api/v1/events/replay", {
+    fetch(apiUrl("/api/v1/events/replay"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => jsonOrThrow<EventRunResult>(r)),
 
   approve: (eventId: string, decision: "approved" | "rejected", note?: string) =>
-    fetch(`/api/v1/events/${eventId}/approve`, {
+    fetch(apiUrl(`/api/v1/events/${eventId}/approve`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ decision, note: note ?? null }),
     }).then((r) => jsonOrThrow<EventRunResult>(r)),
 
-  relayStatus: () => fetch("/api/v1/relay/status").then((r) => jsonOrThrow<RelayStatus>(r)),
+  relayStatus: () => fetch(apiUrl("/api/v1/relay/status")).then((r) => jsonOrThrow<RelayStatus>(r)),
 
   relayTrace: (limit = 200) =>
-    fetch(`/api/v1/relay/trace?limit=${limit}`).then((r) => jsonOrThrow<RelayRecord[]>(r)),
+    fetch(apiUrl(`/api/v1/relay/trace?limit=${limit}`)).then((r) => jsonOrThrow<RelayRecord[]>(r)),
 
-  smsStatus: () => fetch("/api/v1/notifications/sms/status").then((r) => jsonOrThrow<SmsStatus>(r)),
+  smsStatus: () => fetch(apiUrl("/api/v1/notifications/sms/status")).then((r) => jsonOrThrow<SmsStatus>(r)),
 
   smsSend: (message: string) =>
-    fetch("/api/v1/notifications/sms/send", {
+    fetch(apiUrl("/api/v1/notifications/sms/send"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
     }).then((r) => jsonOrThrow<SmsSendResult>(r)),
 
   smsLanguages: () =>
-    fetch("/api/v1/notifications/sms/languages").then((r) => jsonOrThrow<{ languages: SmsLanguage[] }>(r)),
+    fetch(apiUrl("/api/v1/notifications/sms/languages")).then((r) => jsonOrThrow<{ languages: SmsLanguage[] }>(r)),
 
   smsDraft: (body: { city_label: string; headline: string; guidance_points: string[]; language_code: string }) =>
-    fetch("/api/v1/notifications/sms/draft", {
+    fetch(apiUrl("/api/v1/notifications/sms/draft"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => jsonOrThrow<SmsDraftResult>(r)),
 
   smsSendTestTemplate: () =>
-    fetch("/api/v1/notifications/sms/send-test-template", { method: "POST" }).then((r) =>
+    fetch(apiUrl("/api/v1/notifications/sms/send-test-template"), { method: "POST" }).then((r) =>
       jsonOrThrow<SmsSendResult>(r),
     ),
 };
@@ -138,7 +154,9 @@ export function streamReplay(
   };
 
   try {
-    const url = `/api/v1/events/replay/stream?label=${encodeURIComponent(label)}&city=${city}&evidence_mode=${evidenceMode}&inject_contradiction=${injectContradiction}`;
+    const url = apiUrl(
+      `/api/v1/events/replay/stream?label=${encodeURIComponent(label)}&city=${city}&evidence_mode=${evidenceMode}&inject_contradiction=${injectContradiction}`,
+    );
     es = new EventSource(url);
 
     // 220s: worst case runs 4 sequential DeepAgents attempts (vision,

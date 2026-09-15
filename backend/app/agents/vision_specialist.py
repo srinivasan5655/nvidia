@@ -20,7 +20,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.config import Settings
-from app.nvidia_runtime.switchyard_router import resolve_vision_target
+from app.nvidia_runtime.openshell_specialist import build_fallback_chat_model
+from app.nvidia_runtime.switchyard_router import resolve_vision_chain
 
 SYSTEM_PROMPT = """You are a flood-damage evidence specialist. You are given \
 one geo-tagged field or drone image from a flood event. Extract ONLY what is \
@@ -67,14 +68,8 @@ def _chat_model(settings: Settings):
     # — the fallback should trigger almost immediately, not after minutes.
     from langchain_openai import ChatOpenAI
 
-    target = resolve_vision_target(settings)
-    return ChatOpenAI(
-        model=target.model,
-        base_url=target.base_url,
-        api_key=target.api_key or "not-required",
-        timeout=25.0,
-        max_retries=0,
-    )
+    chain = resolve_vision_chain(settings)
+    return build_fallback_chat_model(chain, model_cls=ChatOpenAI, timeout=25.0, max_retries=0)
 
 
 def build_vision_specialist(settings: Settings):
@@ -133,9 +128,9 @@ async def run_vision_specialist_locally(settings: Settings, *, image_path: str, 
     taken, so the audit trail is honest about the missing isolation."""
     from app.nvidia_runtime import nim_client
 
-    target = resolve_vision_target(settings)
+    chain = resolve_vision_chain(settings)
     raw = await nim_client.vision_completion(
-        target,
+        chain,
         # A hand-written example beats dumping model_json_schema() into the
         # prompt: the schema's Python repr uses single quotes (invalid JSON),
         # and vision-instruct models tend to echo a large embedded schema

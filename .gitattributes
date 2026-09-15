@@ -1,0 +1,6 @@
+# These scripts run on Curiosity v2 (Linux) via `bash script.sh`. Force LF
+# regardless of core.autocrlf on a Windows checkout — a CRLF line ending
+# breaks the shell on Linux (e.g. `set -e\r` parses as an illegal option),
+# which is exactly what happened when start_docker_stack.sh got checked out
+# with CRLF on 2026-09-14 and failed on dgx08 with "Illegal option -".
+*.sh text eol=lf

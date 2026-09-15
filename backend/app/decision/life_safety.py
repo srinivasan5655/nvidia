@@ -19,7 +19,7 @@ from app.config import Settings
 from app.models.schemas import EventBundle, GateResult, GateStatus, LifeSafetyGuidance
 from app.nvidia_runtime import nim_client
 from app.nvidia_runtime.relay_governance import governed_scope
-from app.nvidia_runtime.switchyard_router import ReasoningEffort, resolve_reasoning_target
+from app.nvidia_runtime.switchyard_router import ReasoningEffort, resolve_reasoning_chain
 
 logger = logging.getLogger("lifeshield.life_safety")
 
@@ -76,7 +76,8 @@ async def synthesize_life_safety_guidance(
     )
 
     effort = _reasoning_effort_for(gates)
-    target = resolve_reasoning_target(settings, effort=effort)
+    chain = resolve_reasoning_chain(settings, effort=effort)
+    target = chain[0]
     agent_harness = "direct"
     with governed_scope(
         "life_safety_narrative",
@@ -111,7 +112,7 @@ async def synthesize_life_safety_guidance(
                 # it's turned off outright rather than just widened token
                 # budgets (which reduce but don't eliminate the failure mode).
                 raw = await nim_client.chat_completion(
-                    target,
+                    chain,
                     system=SYSTEM_PROMPT,
                     user=user_prompt,
                     max_tokens=2000,

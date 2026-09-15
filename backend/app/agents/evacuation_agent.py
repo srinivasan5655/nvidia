@@ -18,7 +18,8 @@ from __future__ import annotations
 from app.config import Settings
 from app.decision.evacuation import compute_evacuation_plan
 from app.models.schemas import EvacuationPlan, EventBundle
-from app.nvidia_runtime.switchyard_router import resolve_reasoning_target
+from app.nvidia_runtime.openshell_specialist import build_fallback_chat_model
+from app.nvidia_runtime.switchyard_router import resolve_reasoning_chain
 
 SYSTEM_PROMPT = """You are an evacuation planning agent. Call plan_evacuation \
 to get the deterministic candidate shelters and routes for this event — \
@@ -30,16 +31,11 @@ the tool returned, flagging any route with a closure warning."""
 def _chat_model(settings: Settings):
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-    target = resolve_reasoning_target(settings, effort="low")
+    chain = resolve_reasoning_chain(settings, effort="low")
     # No max_retries here: unlike ChatOpenAI, ChatNVIDIA has no such field —
     # passing one gets forwarded straight into the request body, which NIM
     # then rejects ("Unsupported parameter(s): max_retries").
-    return ChatNVIDIA(
-        model=target.model,
-        base_url=target.base_url,
-        api_key=target.api_key or "not-required",
-        timeout=10.0,
-    )
+    return build_fallback_chat_model(chain, model_cls=ChatNVIDIA, timeout=10.0)
 
 
 async def run_evacuation_agent(bundle: EventBundle, settings: Settings, *, confidence: float) -> EvacuationPlan | None:
