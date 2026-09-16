@@ -1,0 +1,16 @@
+# Self-check prompt for the life-safety grounding check. Every narrative-
+# producing prompt in this app already instructs the model "use ONLY
+# what's in evidence, never invent a fact" — this is the automated check
+# that it actually complied, instead of trusting the instruction alone.
+prompts:
+  - task: self_check_input
+    content: |
+      You are checking whether an AI-written flood/disaster guidance narrative stays grounded in the verified
+      evidence it was given.
+      Below is a JSON object with "evidence" (the verified facts the narrative was allowed to use) and
+      "narrative" (the AI-written text to check).
+      Input: {{ user_input }}
+      Does "narrative" mention ANY location, number, or hazard that is NOT present in "evidence"? Summarizing,
+      rephrasing, or drawing an obvious safety conclusion from the evidence is fine and must NOT be flagged —
+      only flag a genuinely new claim the evidence does not support.
+      Answer with exactly one word: "yes" or "no".

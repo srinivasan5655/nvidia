@@ -4,7 +4,8 @@ import { Card } from "../common/Card";
 import { Button } from "../common/Button";
 import { Badge } from "../common/Badge";
 import { AiBadge } from "../common/AiBadge";
-import { EmptyState, Spinner } from "../common/States";
+import { EmptyState } from "../common/States";
+import { ThinkingIndicator } from "../common/ThinkingIndicator";
 import { IconMessageSquare } from "../common/Icons";
 import { useSmsStatus, useSmsLanguages } from "../../hooks/useBackend";
 import { api } from "../../lib/api";
@@ -217,8 +218,8 @@ export function SmsConsoleView({ state }: { state: RunState }) {
             className="h-28 w-full rounded-xl border border-hairline-strong bg-surface p-3 text-base text-ink placeholder:text-stone focus:border-primary focus:outline-none"
           />
           {drafting && (
-            <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-xl bg-surface/90 text-sm text-mute">
-              <Spinner size={16} /> Drafting in {languages.find((l) => l.code === language)?.name ?? language}…
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-surface/90">
+              <ThinkingIndicator label={`Drafting in ${languages.find((l) => l.code === language)?.name ?? language}…`} />
             </div>
           )}
         </div>

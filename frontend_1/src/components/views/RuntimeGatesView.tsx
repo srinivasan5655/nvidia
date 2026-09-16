@@ -131,6 +131,7 @@ export function RuntimeGatesView({
             streaming={state.phase === "streaming"}
             onSelectGate={setSelectedGate}
             activeGate={selectedGate}
+            hidePassed={!!config?.hide_passed_gates}
           />
 
           {active && (

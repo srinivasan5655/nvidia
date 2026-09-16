@@ -38,3 +38,17 @@ langchain-openai==1.6.2
 # Model clients (OpenAI-compatible dispatch to build.nvidia.com / self-hosted NIM)
 openai==2.54.0
 anthropic==0.125.0
+
+# Real NVIDIA NeMo Evaluator engine — pip-installable, no Docker/Kubernetes
+# needed (verified: runs locally against any OpenAI-compatible endpoint,
+# including our own NIM targets). Used for app/eval/nemo_evaluator_suite.py's
+# two custom benchmarks (retrieval precision/recall/F1, life-safety
+# faithfulness/completeness/bias). Its own RAG-named metrics like
+# `rag_faithfulness` belong to the separate, heavier NeMo Microservices
+# deployment, not this package — see that module's docstring.
+# Windows note: ne.get_environment() unconditionally tries to import ALL of
+# NeMo Evaluator's built-in benchmarks first, one of which (nmp_harbor) does
+# a bare `import fcntl` (POSIX-only) and crashes on Windows — worked around
+# in nemo_evaluator_suite.py by pre-setting the package's own "builtins
+# already loaded" flag, not by patching the installed package itself.
+nemo-evaluator==0.3.0

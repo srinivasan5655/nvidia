@@ -50,23 +50,34 @@ export function RelayObservability({
     let completion = 0;
     let total = 0;
     let llmCalls = 0;
-    const byModel = new Map<string, { prompt: number; completion: number; total: number; calls: number }>();
+    let latencySum = 0;
+    let costSum = 0;
+    const byModel = new Map<
+      string,
+      { prompt: number; completion: number; total: number; calls: number; latencySum: number; cost: number }
+    >();
 
     for (const r of records) {
       if (r.kind === "mark" && r.name === "llm.tokens") {
         const p = measurement(r, "prompt_tokens");
         const c = measurement(r, "completion_tokens");
         const t = measurement(r, "total_tokens");
+        const latency = measurement(r, "latency_ms");
+        const cost = measurement(r, "cost_usd");
         prompt += p;
         completion += c;
         total += t;
+        latencySum += latency;
+        costSum += cost;
         llmCalls += 1;
         const model = (r.metadata?.model as string | undefined) ?? "unknown";
-        const entry = byModel.get(model) ?? { prompt: 0, completion: 0, total: 0, calls: 0 };
+        const entry = byModel.get(model) ?? { prompt: 0, completion: 0, total: 0, calls: 0, latencySum: 0, cost: 0 };
         entry.prompt += p;
         entry.completion += c;
         entry.total += t;
         entry.calls += 1;
+        entry.latencySum += latency;
+        entry.cost += cost;
         byModel.set(model, entry);
       }
     }
@@ -75,7 +86,11 @@ export function RelayObservability({
       .filter((r) => r.kind === "scope")
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    return { totals: { prompt, completion, total, llmCalls }, byModel, activity };
+    return {
+      totals: { prompt, completion, total, llmCalls, avgLatencyMs: llmCalls ? latencySum / llmCalls : 0, costSum },
+      byModel,
+      activity,
+    };
   }, [rawRecords]);
 
   if (!status?.enabled) {
@@ -113,16 +128,26 @@ export function RelayObservability({
         not just this run.
       </p>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Total tokens" value={totals.total.toLocaleString()} tone="primary" />
         <StatTile label="Prompt tokens" value={totals.prompt.toLocaleString()} />
         <StatTile label="Completion tokens" value={totals.completion.toLocaleString()} />
         <StatTile label="LLM calls" value={String(totals.llmCalls)} />
       </div>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="Avg response time" value={`${Math.round(totals.avgLatencyMs)} ms`} />
+        <StatTile label="Est. cost (this trace)" value={`$${totals.costSum.toFixed(4)}`} />
+      </div>
+      <p className="mb-4 text-[10px] text-stone">
+        Response time is real, measured wall-clock latency per call. Cost is an <b className="text-body">estimate</b>
+        {" "}from a generic rate — build.nvidia.com's hosted catalog has no public per-token price today, so this is
+        never an NVIDIA-billed figure, only a labeled stand-in (see <code className="font-mono">config.py</code>'s
+        {" "}<code className="font-mono">nim_cost_per_1k_*_usd</code>).
+      </p>
 
       {byModel.size > 0 && (
         <div className="mb-4">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-mute">Tokens by model</div>
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-mute">Tokens, latency &amp; cost by model</div>
           <div className="flex flex-col gap-1.5">
             {Array.from(byModel.entries()).map(([model, m]) => (
               <div
@@ -130,12 +155,18 @@ export function RelayObservability({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-hairline bg-surface p-2.5 text-xs"
               >
                 <span className="font-mono text-body">{model}</span>
-                <span className="flex gap-3 text-stone">
+                <span className="flex flex-wrap gap-3 text-stone">
                   <span>
                     <span className="font-mono font-bold text-ink">{m.calls}</span> calls
                   </span>
                   <span>
                     <span className="font-mono font-bold text-ink">{m.total.toLocaleString()}</span> tokens
+                  </span>
+                  <span>
+                    <span className="font-mono font-bold text-ink">{Math.round(m.latencySum / m.calls)}</span> ms avg
+                  </span>
+                  <span>
+                    <span className="font-mono font-bold text-ink">${m.cost.toFixed(4)}</span> est.
                   </span>
                 </span>
               </div>

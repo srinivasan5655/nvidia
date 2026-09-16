@@ -1,0 +1,18 @@
+# NeMo Guardrails config for the life-safety narrative grounding check —
+# verifies an AI-written narrative doesn't state a claim absent from the
+# evidence it was given. Reuses "self check input" (not the library's
+# reserved "self check facts" action) — see grounding_rails.py's module
+# docstring for why: self_check_facts drives the full Colang dialog engine
+# per call (verified live: triggers a generate_user_intent LLM call before
+# the fact-check itself runs), which is unnecessary overhead and extra
+# exposure to this account's NIM socket-timeout/503 flakiness for a check
+# that only needs one LLM call.
+models:
+  - type: main
+    engine: nvidia_ai_endpoints
+    model: placeholder
+
+rails:
+  input:
+    flows:
+      - self check input

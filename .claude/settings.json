@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Software/Codes/nvidia/backend/app/agents/**)",
+      "Read(//d/Software/Codes/nvidia/backend/app/nvidia_runtime/**)",
+      "Read(//d/Software/Codes/nvidia/backend/app/decision/**)"
+    ]
+  }
+}

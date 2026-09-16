@@ -16,8 +16,10 @@ import logging
 from app.agents.hazard_agent import run_hazard_agent
 from app.agents.vision_specialist import DamageEvidence
 from app.config import Settings
+from app.guardrails.grounding_rails import check_grounding
 from app.models.schemas import EventBundle, GateResult, GateStatus, LifeSafetyGuidance
 from app.nvidia_runtime import nim_client
+from app.nvidia_runtime.circuit_breaker import deepagents_breaker
 from app.nvidia_runtime.relay_governance import governed_scope
 from app.nvidia_runtime.switchyard_router import ReasoningEffort, resolve_reasoning_chain
 
@@ -84,22 +86,31 @@ async def synthesize_life_safety_guidance(
         "Llm",
         metadata={"event_id": bundle.event_id, "model": target.model, "reasoning_effort": effort},
     ) as handle:
-        try:
-            # Hazard Overlay Agent (DeepAgents) attempted first — matches the
-            # architecture diagram's "02 Geospatial / Hazard Overlay Agent".
-            # Falls back to a direct NIM call on any failure; see
-            # vision_specialist.py's module docstring for the verified,
-            # repeatable multi-tool-binding failure mode on this NIM account
-            # that this fallback exists for.
-            structured = await run_hazard_agent(SYSTEM_PROMPT, user_prompt, settings, effort)
-            parsed = {
-                "headline": structured.headline,
-                "guidance_points": structured.guidance_points,
-                "hazard_narrative": structured.hazard_narrative,
-            }
-            agent_harness = "deepagents"
-        except Exception as exc:  # noqa: BLE001 - DeepAgents harness failure -> fall back to the proven direct call
-            logger.warning("Hazard Overlay Agent failed (%s); falling back to direct NIM call.", exc)
+        parsed = None
+        # Hazard Overlay Agent (DeepAgents) attempted first — matches the
+        # architecture diagram's "02 Geospatial / Hazard Overlay Agent" —
+        # but only if the circuit breaker hasn't already learned this call
+        # path is currently broken. See vision_specialist.py's module
+        # docstring for the verified, repeatable multi-tool-binding failure
+        # mode on this NIM account, and circuit_breaker.py for why skipping
+        # a known-broken attempt beats retrying it every single run.
+        if deepagents_breaker.allow_attempt():
+            try:
+                structured = await run_hazard_agent(SYSTEM_PROMPT, user_prompt, settings, effort)
+                parsed = {
+                    "headline": structured.headline,
+                    "guidance_points": structured.guidance_points,
+                    "hazard_narrative": structured.hazard_narrative,
+                }
+                agent_harness = "deepagents"
+                deepagents_breaker.record_success()
+            except Exception as exc:  # noqa: BLE001 - DeepAgents harness failure -> fall back to the proven direct call
+                deepagents_breaker.record_failure()
+                logger.warning("Hazard Overlay Agent failed (%s); falling back to direct NIM call.", exc)
+        else:
+            logger.info("Circuit breaker open for 'deepagents' — skipping straight to the direct NIM call.")
+
+        if parsed is None:
             try:
                 # disable_thinking on the low-effort tier: nemotron-3.5-lightning
                 # is a reasoning model whose chain-of-thought length is
@@ -127,6 +138,29 @@ async def synthesize_life_safety_guidance(
                     "hazard_narrative": f"[LLM unavailable: {exc2}] Falling back to raw evidence summaries.",
                 }
                 overall_confidence = min(overall_confidence, 0.3)
+
+        # Grounding check — a second, real NeMo Guardrails layer behind the
+        # system prompt's "never invent a fact" instruction: verifies the
+        # narrative above doesn't state a location, number, or hazard the
+        # evidence doesn't support. Only meaningful when there's an actual
+        # model-written narrative to check — the "[LLM unavailable]" tier
+        # above is trivially grounded, since it IS the raw evidence, so it's
+        # skipped rather than spending a call checking evidence against itself.
+        if not parsed["headline"].startswith("[LLM unavailable]"):
+            narrative_text = "\n".join(
+                [parsed["headline"], parsed["hazard_narrative"], *parsed["guidance_points"]]
+            )
+            evidence_text = "\n".join(f"{i['source']}: {i['summary']}" for i in evidence_summary)
+            grounded, grounding_note = await check_grounding(evidence_text, narrative_text, settings)
+            if not grounded:
+                logger.warning("Life-safety narrative failed grounding check (%s); falling back to evidence-only summary.", grounding_note)
+                parsed = {
+                    "headline": "[Grounding check failed] Evidence-only summary",
+                    "guidance_points": [i["summary"] for i in evidence_summary[:5]],
+                    "hazard_narrative": f"[{grounding_note}] Falling back to raw evidence summaries.",
+                }
+                overall_confidence = min(overall_confidence, 0.35)
+                agent_harness = "direct"
 
     return LifeSafetyGuidance(
         headline=parsed["headline"],

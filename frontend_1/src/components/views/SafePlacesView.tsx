@@ -1,5 +1,6 @@
 import { TacticalMap } from "../map/TacticalMap";
 import { EvacuationPlanCard } from "./evacuation/EvacuationPlanCard";
+import { ResourceDispatchCard } from "../common/ResourceDispatchCard";
 import { Card } from "../common/Card";
 import { EmptyState } from "../common/States";
 import { IconMapPin } from "../common/Icons";
@@ -60,6 +61,7 @@ export function SafePlacesView({ state }: { state: RunState }) {
       </div>
 
       <EvacuationPlanCard plan={state.evacuationPlan} />
+      <ResourceDispatchCard plan={state.resourceDispatch} />
     </div>
   );
 }

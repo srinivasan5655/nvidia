@@ -2,9 +2,22 @@ import { Card, CardHeader } from "../common/Card";
 import { Badge } from "../common/Badge";
 import { AiBadge } from "../common/AiBadge";
 import { ConfidenceBar } from "../common/ConfidenceBar";
+import { ReasoningTrace } from "../common/ReasoningTrace";
 import { EmptyState } from "../common/States";
 import { GATE_LABELS, distinctCitedSources } from "../../lib/format";
+import type { LifeSafetyGuidance } from "../../lib/types";
 import type { RunState } from "../../hooks/useEventRun";
+
+function traceFor(ls: LifeSafetyGuidance): string[] {
+  return [
+    "Evidence",
+    "Evidence Verifier",
+    "Confidence Gate",
+    `NIM · ${ls.model_used && ls.model_used !== "none" ? ls.model_used : "unavailable"}`,
+    ls.agent_harness === "deepagents" ? "Hazard Agent" : "Direct call",
+    "Guidance",
+  ];
+}
 
 /** Guidance confidence is `min(gate confidences)` on the backend (see
  * life_safety.py) — never its own number, so its explanation is always
@@ -83,9 +96,15 @@ export function LifeSafetyView({
         <p className="mb-4 text-sm text-body">
           {isDegraded ? ls.hazard_narrative.replace(/^\[LLM unavailable:.*?\]\s*/, "") : ls.hazard_narrative}
         </p>
-        <div className="max-w-sm">
+        <div className="mb-4 max-w-sm">
           <ConfidenceBar value={ls.confidence} label="Guidance confidence" reasoning={confidenceReasoning(state)} />
         </div>
+        {!isDegraded && (
+          <div>
+            <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-mute">Reasoning path</div>
+            <ReasoningTrace steps={traceFor(ls)} />
+          </div>
+        )}
       </Card>
 
       <Card>

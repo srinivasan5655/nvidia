@@ -28,10 +28,12 @@ export function AiBadge({
 }) {
   return (
     <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
-      <span className="animate-ai-glow inline-flex items-center gap-1.5 rounded-full border border-[#7dd3fc]/40 bg-gradient-to-r from-[#7dd3fc]/10 to-[#a78bfa]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#c4d9f7]">
+      <span className="animate-ai-glow inline-flex items-center gap-1.5 rounded-full border border-intel/40 bg-gradient-to-r from-intel/10 to-intel-violet/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-intel">
         <IconRobot className="h-3.5 w-3.5 shrink-0" />
         AI-Generated
-        {model && <span className="font-mono normal-case tracking-normal text-[#c4d9f7]/60">· {model}</span>}
+        {model && model !== "none" && (
+          <span className="font-mono normal-case tracking-normal text-intel/70">· {model}</span>
+        )}
       </span>
       {services?.map((s) => (
         <span

@@ -20,11 +20,15 @@ export function GatePipeline({
   streaming,
   onSelectGate,
   activeGate,
+  hidePassed = false,
 }: {
   gates: GateResult[];
   streaming: boolean;
   onSelectGate: (name: string) => void;
   activeGate: string | null;
+  /** HIDE_PASSED_GATES from backend/.env (via /api/v1/config) — hides the
+   * "passed" status badge since passing is the expected/silent state. */
+  hidePassed?: boolean;
 }) {
   const byName = new Map(gates.map((g) => [g.gate_name, g]));
 
@@ -50,7 +54,9 @@ export function GatePipeline({
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-mute">Agent {i + 1}</span>
                 {gate ? (
-                  <Badge tone={statusTone(gate.status)}>{gate.status}</Badge>
+                  hidePassed && gate.status === "passed" ? null : (
+                    <Badge tone={statusTone(gate.status)}>{gate.status}</Badge>
+                  )
                 ) : streaming ? (
                   <Badge tone="neutral" className="animate-pulse-live">
                     Running

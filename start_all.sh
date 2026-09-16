@@ -39,6 +39,23 @@ for arg in "$@"; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+
+# Upserts KEY=VALUE into an env file (updates in place if the key already
+# exists, appends otherwise) -- used below to keep backend/.env's OpenShell
+# settings in sync with what this run actually started, instead of just
+# printing a reminder for the user to edit it by hand (the previous
+# behavior, which is why OPENSHELL_ENABLED=true + a blank OPENSHELL_ENDPOINT
+# could sit in .env indefinitely even on a run where the gateway came up
+# fine -- the backend only reads .env once at startup, so a stale/blank
+# endpoint there silently degrades every run to un-sandboxed mode).
+set_env_var() {
+  local key="$1" value="$2" file="$3"
+  if grep -q "^${key}=" "$file" 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
 GATEWAY_NAME="openshell"
 GATEWAY_PORT=17670
 GATEWAY_CONFIG="$HOME/.config/openshell/gateway.toml"
@@ -57,7 +74,11 @@ else
 fi
 NIM_IMAGE="nvcr.io/nim/nvidia/nemotron-3-super-120b-a12b:latest"
 NIM_PORT=8000
-LOG_DIR="/raid/docker/tmp"
+# /raid/docker/tmp is node-local scratch and not guaranteed writable for
+# every user on every node (verified live: "Permission denied" writing there
+# from this account) -- use the team's own persistent storage instead, which
+# this account does have write access to.
+LOG_DIR="/storage/hackathon_teams/gsh-team11/nvidia_hackathon/logs"
 mkdir -p "$LOG_DIR"
 
 echo "=== 1/8: self-hosted NIM/vLLM container (nemotron-3-super, backgrounded) ==="
@@ -82,7 +103,7 @@ else
     --container-mounts="$HOME/.cache/nim:/opt/nim/.cache" \
     -e NIM_SERVER_PORT="$NIM_PORT" -e NIM_HEALTH_PORT="$NIM_PORT" \
     /opt/nim/start_server.sh --no-enable-flashinfer-autotune \
-    > "$NIM_LOG" 2>&1 &
+    > >(sed -u 's/^/[nim] /' | tee -a "$NIM_LOG") 2>&1 &
   disown
   sleep 15
   if grep -qiE 'error|not in the sudoers|Permission denied' "$NIM_LOG"; then
@@ -214,7 +235,7 @@ if [ "$NSENTER_OK" = true ]; then
   nohup "${NSENTER_CMD[@]}" \
     env HOME="$HOME" DOCKER_HOST="$DOCKER_HOST" "$HOME/.local/bin/openshell-gateway" \
     --disable-tls --drivers docker --port "$GATEWAY_PORT" --config "$GATEWAY_CONFIG" \
-    > "$GATEWAY_LOG" 2>&1 &
+    > >(sed -u 's/^/[gateway] /' | tee -a "$GATEWAY_LOG") 2>&1 &
   disown
 
   # Health-checked, not just launched-and-assumed: poll the log for the actual
@@ -266,17 +287,26 @@ else
   echo "=== 6/8: skipped (no gateway to port-forward) ==="
 fi
 
-if [ "$OPENSHELL_UP" != true ]; then
-  echo "NOTE: OpenShell gateway is NOT running. Make sure backend/.env has" >&2
-  echo "OPENSHELL_ENABLED=false (or leave OPENSHELL_ENDPOINT unset) so the app" >&2
-  echo "doesn't waste time retrying a dead gateway -- specialists still run for" >&2
-  echo "real against NIM, just un-sandboxed." >&2
+ENV_FILE="$BACKEND_DIR/.env"
+if [ "$OPENSHELL_UP" = true ]; then
+  echo "=== Syncing $ENV_FILE with the live OpenShell gateway ==="
+  set_env_var "OPENSHELL_ENABLED" "true" "$ENV_FILE"
+  set_env_var "OPENSHELL_ENDPOINT" "http://127.0.0.1:$GATEWAY_PORT" "$ENV_FILE"
+  set_env_var "OPENSHELL_CLUSTER" "$GATEWAY_NAME" "$ENV_FILE"
+  echo "OPENSHELL_ENABLED=true, OPENSHELL_ENDPOINT=http://127.0.0.1:$GATEWAY_PORT, OPENSHELL_CLUSTER=$GATEWAY_NAME"
+else
+  echo "NOTE: OpenShell gateway is NOT running -- setting OPENSHELL_ENABLED=false" >&2
+  echo "in $ENV_FILE so the app doesn't waste time retrying a dead gateway --" >&2
+  echo "specialists still run for real against NIM, just un-sandboxed." >&2
+  set_env_var "OPENSHELL_ENABLED" "false" "$ENV_FILE"
 fi
 
 echo "=== 7/8: start backend (restarts if already running on this port) ==="
 if [ ! -x "$BACKEND_DIR/.venv_run/bin/python" ]; then
   echo "ERROR: $BACKEND_DIR/.venv_run not found. Run once:" >&2
   echo "  cd $BACKEND_DIR && uv venv .venv_run && uv pip install --python .venv_run/bin/python -r requirements.txt" >&2
+  echo "  (if 'uv' isn't installed and you have no admin rights to add it, plain venv/pip works too:)" >&2
+  echo "  cd $BACKEND_DIR && python3 -m venv .venv_run && .venv_run/bin/python -m pip install -r requirements.txt" >&2
   exit 1
 fi
 
@@ -290,7 +320,7 @@ fi
 BACKEND_LOG="$LOG_DIR/backend.log"
 : > "$BACKEND_LOG"
 ( cd "$BACKEND_DIR" && nohup .venv_run/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" \
-  > "$BACKEND_LOG" 2>&1 & disown )
+  > >(sed -u 's/^/[backend] /' | tee -a "$BACKEND_LOG") 2>&1 & disown )
 
 for i in $(seq 1 20); do
   if curl -sf "http://localhost:$BACKEND_PORT/health" > /dev/null 2>&1; then
@@ -333,7 +363,7 @@ FRONTEND_LOG="$LOG_DIR/frontend.log"
 # vite.config.ts's server.host=true is equivalent, to match the exact
 # invocation verified working by hand.
 ( cd "$FRONTEND_DIR" && PROXY_BASE="$JUPYTERHUB_BASE" BACKEND_PORT="$BACKEND_PORT" nohup npm run dev -- --host 0.0.0.0 \
-  > "$FRONTEND_LOG" 2>&1 & disown )
+  > >(sed -u 's/^/[frontend] /' | tee -a "$FRONTEND_LOG") 2>&1 & disown )
 
 for i in $(seq 1 20); do
   if curl -sf "http://localhost:$FRONTEND_PORT" > /dev/null 2>&1; then
@@ -363,9 +393,9 @@ else
   echo "            (run with --external instead if you need the public JupyterHub URL)"
 fi
 echo
-echo "Check backend/.env has OPENSHELL_ENABLED=true, OPENSHELL_ENDPOINT=http://127.0.0.1:$GATEWAY_PORT,"
-echo "OPENSHELL_CLUSTER=$GATEWAY_NAME, and NIM_PROD_BASE_URL=http://localhost:$NIM_PORT/v1 before trusting"
-echo "a replay run to use the sandbox/vLLM paths."
+echo "OpenShell gateway state (up=$OPENSHELL_UP) was synced into backend/.env automatically above."
+echo "Check backend/.env has NIM_PROD_BASE_URL=http://localhost:$NIM_PORT/v1 before trusting a replay"
+echo "run to use the vLLM path -- the NIM container may still be warming up (see its log)."
 echo
 echo "Test: curl -s -X POST http://localhost:$BACKEND_PORT/api/v1/events/replay \\"
 echo "        -H 'Content-Type: application/json' -d '{\"label\":\"stack test\",\"city\":\"houston\"}'"

@@ -216,6 +216,98 @@ class CounterfactualAnalysis(BaseModel):
     generated_at: datetime = Field(default_factory=now_utc)
 
 
+class ForecastHorizon(BaseModel):
+    """One projected point on the forward risk timeline. `narrative` is the
+    only model-written field; everything else is either a fixed label or
+    copied from the deterministic trend fed into the prompt."""
+
+    label: Literal["+6h", "+12h", "+24h"]
+    narrative: str
+
+
+class ForwardRiskForecast(BaseModel):
+    """AI-derived forward projection — the app's answer to "where is this
+    going," not just "where is this now." `trend_basis` is 100% deterministic
+    (real rate-of-change arithmetic over the same USGS gauge readings already
+    in the evidence bundle, see decision/forecast.py's compute_gauge_trend);
+    the model narrates the implication of that trend at each horizon and is
+    explicitly forbidden from inventing a new number. Optional on
+    EventRunResult: only produced when life_safety exists and at least one
+    trend-bearing (USGS) evidence item was present."""
+
+    trend_basis: list[str]
+    horizons: list[ForecastHorizon]
+    model_used: str = ""
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+class ProactiveAlert(BaseModel):
+    """One alert the system decided to raise on its own, without a human
+    clicking 'Check Now' on that specific event — see
+    decision/proactive_monitor.py. Distinct from every other narrative in
+    this app in one respect: it's the only one triggered by a background
+    scan noticing a trend crossing a threshold, not by a request."""
+
+    event_id: str
+    city_label: str
+    headline: str
+    narrative: str
+    severity: Literal["watch", "warning"]
+    model_used: str = ""
+    triggered_at: datetime = Field(default_factory=now_utc)
+
+
+class DecisionBrief(BaseModel):
+    """A short brief generated for the person about to click Approve/Reject
+    — not the Executive Briefing (that's for a reader who wasn't watching
+    the run at all). This answers one question: 'what changed, and what's
+    the trend, since the evidence was last this clear?' Built only from this
+    run's own fields plus its forecast, never outside knowledge."""
+
+    event_id: str
+    summary: str
+    model_used: str = ""
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+class ShelterDispatchPriority(BaseModel):
+    """One shelter's resource-dispatch ranking — a different question from
+    the Evacuation Plan's "nearest first": which shelter should a duty
+    officer staff/resupply FIRST for the biggest plausible impact. See
+    decision/resource_dispatch.py for the (explicitly illustrative)
+    capacity assumption this is built on."""
+
+    shelter_item_id: str
+    shelter_name: str
+    distance_km: float
+    capacity_illustrative: int
+    priority_score: float
+    rank: int
+
+
+class ResourceDispatchPlan(BaseModel):
+    event_id: str
+    shelters: list[ShelterDispatchPriority] = Field(default_factory=list)
+    methodology: str
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+class ParametricTriggerResult(BaseModel):
+    """Deterministic evaluation of whether this event's real gauge
+    rate-of-rise crosses an illustrative parametric-insurance payout
+    threshold — see decision/parametric_trigger.py. Tiers/payouts are
+    illustrative (no real contract exists yet); the peak_rate and basis are
+    real, measured numbers, not invented ones."""
+
+    event_id: str
+    triggered: bool
+    tier: Optional[str] = None
+    peak_rate: float
+    basis: list[str] = Field(default_factory=list)
+    payout_pct_illustrative: Optional[float] = None
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
 class EventRunResult(BaseModel):
     event: EventBundle
     gates: list[GateResult] = Field(default_factory=list)
@@ -223,6 +315,17 @@ class EventRunResult(BaseModel):
     insurer_exposure: Optional[InsurerExposureOutput] = None
     evacuation_plan: Optional[EvacuationPlan] = None
     counterfactual: Optional[CounterfactualAnalysis] = None
+    forward_risk_forecast: Optional[ForwardRiskForecast] = None
+    # Everything below is new and purely additive — a default is always
+    # provided, so any code (frontend or backend) that predates these
+    # fields sees behavior byte-identical to before they existed.
+    resource_dispatch: Optional[ResourceDispatchPlan] = None
+    parametric_trigger: Optional[ParametricTriggerResult] = None
+    alert_tier: Literal["watch", "warning", "emergency"] = "watch"
+    """NWS/IMD-style public-alerting vocabulary for this event, computed
+    deterministically from the real CAP severity/urgency fields already in
+    the NWS/IMD evidence item — see decision/alert_tiers.py. Independent of
+    overall_status, which never changes meaning or values because of this."""
     overall_status: Literal["blocked", "awaiting_approval", "approved", "rejected"] = "blocked"
     approval_status: ApprovalStatus = ApprovalStatus.PENDING
     approval_note: Optional[str] = None
@@ -273,3 +376,185 @@ class SmsDraftResult(BaseModel):
     message: str
     model_used: str
     language: str
+
+
+class AssistantChatRequest(BaseModel):
+    question: str
+    event_id: str | None = None
+    """If given and a matching run exists, its live state (hazard headline,
+    gate statuses, exposure/evacuation summary) is added to the grounding
+    context alongside the retrieved glossary passages."""
+
+
+class AssistantCitation(BaseModel):
+    doc_id: str
+    title: str
+    score: float
+
+
+class AssistantAnswer(BaseModel):
+    answer: str
+    model_used: str
+    citations: list[AssistantCitation] = Field(default_factory=list)
+    grounded_in_current_event: bool = False
+    blocked: bool = False
+    """True when NeMo Guardrails blocked the operator's question before it
+    ever reached the retriever/model — see app/guardrails/assistant_rails.py.
+    Distinct from a plain "model unavailable" fallback so the UI can show
+    a different state for "we chose not to answer" vs. "we couldn't"."""
+
+
+# ---------------------------------------------------------------------------
+# Golden-dataset evaluation
+# ---------------------------------------------------------------------------
+
+class EvalAssertion(BaseModel):
+    name: str
+    expected: str
+    actual: str
+    passed: bool
+
+
+class EvalCaseResult(BaseModel):
+    case_id: str
+    label: str
+    city: str
+    passed: bool
+    overall_status: str
+    confidence: float | None = None
+    latency_ms: int
+    assertions: list[EvalAssertion] = Field(default_factory=list)
+    error: str | None = None
+    """Set only if the pipeline itself raised — a real infra failure, not an
+    assertion mismatch. Reported honestly as a failed case either way."""
+
+
+# ---------------------------------------------------------------------------
+# Executive briefing
+# ---------------------------------------------------------------------------
+
+class BriefingResult(BaseModel):
+    """A short, decision-oriented summary of one completed event run, for a
+    reader who wasn't watching the pipeline execute — a Chief Minister, a
+    portfolio head, a duty officer's supervisor. Same discipline as every
+    other narrative in this app: built only from that run's own gates/
+    life-safety/exposure/evacuation output, never from outside knowledge."""
+
+    event_id: str
+    briefing: str
+    model_used: str
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+class EvalSuiteResult(BaseModel):
+    run_at: datetime = Field(default_factory=now_utc)
+    total_cases: int
+    passed_count: int
+    failed_count: int
+    avg_latency_ms: int
+    cases: list[EvalCaseResult] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# NeMo Evaluator — quality-metric benchmarks (real nemo-evaluator package,
+# custom scorers; see app/eval/nemo_evaluator_suite.py)
+# ---------------------------------------------------------------------------
+
+class NemoEvalSample(BaseModel):
+    """One scored sample within a benchmark — the question/case plus the
+    exact metric values that sample earned, so a number in the aggregate
+    can always be traced back to which case produced it."""
+
+    input_label: str
+    scores: dict[str, float]
+    detail: str | None = None
+
+
+class NemoEvalBenchmark(BaseModel):
+    name: str
+    metric: str
+    """Human-readable description of what this benchmark measures and how
+    (e.g. 'grounded ONLY by real NeMo Guardrails self_check_input calls
+    against each case's own evidence')."""
+    description: str
+    sample_count: int
+    aggregate: dict[str, float]
+    """Mean of each metric across all samples in this benchmark, e.g.
+    {"precision": 0.83, "recall": 0.91, "f1": 0.87, "accuracy": 0.86}."""
+    samples: list[NemoEvalSample] = Field(default_factory=list)
+    latency_ms: int
+
+
+class NemoEvalReport(BaseModel):
+    run_at: datetime = Field(default_factory=now_utc)
+    engine: str = "nemo-evaluator"
+    engine_version: str
+    benchmarks: list[NemoEvalBenchmark] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Government feature set — CAP alert export, After-Action Report
+# ---------------------------------------------------------------------------
+
+class CapAlertResult(BaseModel):
+    """A CAP 1.2 (OASIS Common Alerting Protocol) XML package — the format
+    US IPAWS/Wireless Emergency Alerts and most national EM systems require
+    before a warning can trigger a real public broadcast. See
+    decision/cap_export.py: only ever generated for an APPROVED run, and
+    every field in the XML is a reformatting of a value this pipeline
+    already produced and a human already approved — never new content."""
+
+    event_id: str
+    cap_xml: str
+    alert_tier: Literal["watch", "warning", "emergency"]
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+class AfterActionReportResult(BaseModel):
+    """Post-incident compliance document — the report FEMA/NDMA-style
+    agencies are typically required to file after a real event. Built only
+    from this run's own gates/life-safety/exposure/evacuation/counterfactual
+    output plus the actual human approval decision — see
+    decision/after_action_report.py."""
+
+    event_id: str
+    report_text: str
+    model_used: str
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+# ---------------------------------------------------------------------------
+# Insurance feature set — FNOL draft, portfolio PML rollup
+# ---------------------------------------------------------------------------
+
+class FnolDraft(BaseModel):
+    """A draft First Notice of Loss intake packet for one policy already
+    inside this event's footprint — see decision/fnol.py. Every numeric
+    field is copied verbatim from the already-final InsurerExposureLine;
+    only incident_description is model-written. status is always
+    'draft_pending_review' — this is intake support for a human adjuster,
+    never an automated approval or payment."""
+
+    event_id: str
+    policy_id: str
+    incident_description: str
+    estimated_loss: float
+    net_of_deductible: float
+    capped_at_limit: float
+    status: Literal["draft_pending_review"] = "draft_pending_review"
+    model_used: str
+    generated_at: datetime = Field(default_factory=now_utc)
+
+
+class PortfolioPmlResult(BaseModel):
+    """Cross-event Probable Maximum Loss rollup — sums the SAME already-
+    final InsurerExposureOutput totals across every run currently held (see
+    decision/portfolio_pml.py). Pure aggregation; no per-policy number is
+    ever recomputed here, only summed once per event."""
+
+    total_events: int
+    aggregate_estimated_exposure: float
+    aggregate_tiv: float
+    by_city: dict[str, float] = Field(default_factory=dict)
+    by_status: dict[str, float] = Field(default_factory=dict)
+    generated_at: datetime = Field(default_factory=now_utc)

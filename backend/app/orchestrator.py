@@ -24,10 +24,14 @@ from app.agents.exposure_agent import run_exposure_agent
 from app.agents.openshell_supervisor import run_openshell_supervisor
 from app.agents.policy_verifier import verify_policy
 from app.config import Settings
+from app.decision.alert_tiers import compute_alert_tier
 from app.decision.counterfactual import generate_counterfactual
 from app.decision.evacuation import compute_evacuation_plan
+from app.decision.forecast import generate_forward_risk_forecast
 from app.decision.insurer_exposure import compute_insurer_exposure
 from app.decision.life_safety import synthesize_life_safety_guidance
+from app.decision.parametric_trigger import evaluate_parametric_trigger
+from app.decision.resource_dispatch import compute_resource_dispatch_plan
 from app.evidence.builder import build_event_bundle
 from app.models.schemas import ApprovalStatus, EventBundle, EventRunResult, EvidenceSource, GateResult, GateStatus
 from app.nvidia_runtime.relay_governance import governed_scope
@@ -36,7 +40,9 @@ logger = logging.getLogger("lifeshield.orchestrator")
 
 # (stage_name, payload) -> None. Payload shapes: "evidence_assembled" carries
 # {"event": EventBundle}; "gate" carries {"gate": GateResult}; "outputs_ready"
-# carries {"life_safety": ..., "insurer_exposure": ...}; "complete" carries
+# carries {"life_safety": ..., "insurer_exposure": ...}; "counterfactual_ready"
+# carries {"counterfactual": ...}; "forecast_ready" carries
+# {"forecast": ForwardRiskForecast | None}; "complete" carries
 # {"result": EventRunResult}. Purely additive instrumentation hook — when
 # None (the default, and always the case for POST /replay), behavior and
 # timing are byte-for-byte identical to before this hook existed.
@@ -46,6 +52,37 @@ ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
 async def _emit(on_progress: Optional[ProgressCallback], stage: str, payload: dict[str, Any]) -> None:
     if on_progress is not None:
         await on_progress(stage, payload)
+
+
+def _safe_alert_tier(bundle: EventBundle, overall_status: str) -> str:
+    # Defensive by design (safe-mode addition): a bug in this brand-new,
+    # purely additive computation must never take down a pipeline run that
+    # would otherwise have succeeded — worst case, the tier just stays at
+    # the schema's own default ("watch") instead of the real one.
+    try:
+        return compute_alert_tier(bundle, overall_status)
+    except Exception:  # noqa: BLE001 - see comment above
+        logger.warning("Alert-tier computation failed; defaulting to 'watch'.", exc_info=True)
+        return "watch"
+
+
+def _safe_resource_dispatch(bundle, evacuation_plan):
+    # Same safe-mode discipline as _safe_alert_tier: this is a brand-new,
+    # purely additive computation over already-computed data, so any bug
+    # in it degrades to "not available" (None), never to a failed run.
+    try:
+        return compute_resource_dispatch_plan(bundle, evacuation_plan)
+    except Exception:  # noqa: BLE001 - see comment above
+        logger.warning("Resource dispatch plan computation failed; omitting it for this run.", exc_info=True)
+        return None
+
+
+def _safe_parametric_trigger(bundle):
+    try:
+        return evaluate_parametric_trigger(bundle)
+    except Exception:  # noqa: BLE001 - see comment above
+        logger.warning("Parametric trigger evaluation failed; omitting it for this run.", exc_info=True)
+        return None
 
 
 async def run_event_pipeline(
@@ -67,7 +104,7 @@ async def run_event_pipeline(
     _apply_red_team_contradiction."""
     if evidence_mode is not None and evidence_mode != settings.evidence_mode:
         settings = settings.model_copy(update={"evidence_mode": evidence_mode})
-    bundle = await build_event_bundle(settings, label=label, city=city)
+    bundle = await build_event_bundle(settings, label=label, city=city, on_progress=on_progress)
     if inject_contradiction:
         bundle = _apply_red_team_contradiction(bundle)
     await _emit(on_progress, "evidence_assembled", {"event": bundle})
@@ -85,7 +122,10 @@ async def run_event_pipeline(
 
         if confidence_result.status == GateStatus.BLOCKED:
             logger.info("Event %s blocked at confidence gate: %s", bundle.event_id, confidence_result.reasoning)
-            result = EventRunResult(event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED)
+            result = EventRunResult(
+                event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED,
+                alert_tier=_safe_alert_tier(bundle, "blocked"),
+            )
             await _emit(on_progress, "complete", {"result": result})
             return result
 
@@ -99,7 +139,10 @@ async def run_event_pipeline(
 
         if policy_gate.status == GateStatus.BLOCKED:
             logger.info("Event %s blocked at policy verifier: %s", bundle.event_id, policy_gate.reasoning)
-            result = EventRunResult(event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED)
+            result = EventRunResult(
+                event=bundle, gates=gates, overall_status="blocked", approval_status=ApprovalStatus.NOT_REQUIRED,
+                alert_tier=_safe_alert_tier(bundle, "blocked"),
+            )
             await _emit(on_progress, "complete", {"result": result})
             return result
 
@@ -130,6 +173,27 @@ async def run_event_pipeline(
         )
         await _emit(on_progress, "counterfactual_ready", {"counterfactual": counterfactual})
 
+        # Forward Risk Forecast — projects the same evidence forward in time
+        # instead of only narrating its current state (see decision/
+        # forecast.py's module docstring for why this was added). Returns
+        # None when no USGS gauge has a usable multi-point trend, which is
+        # an honest "nothing to project," not a failure.
+        forecast = await generate_forward_risk_forecast(bundle, life_safety, settings)
+        await _emit(on_progress, "forecast_ready", {"forecast": forecast})
+
+        # Government/Insurance feature set (added in response to a Product
+        # Owner review) — Resource Dispatch Priority, Parametric Trigger,
+        # and the Watch/Warning/Emergency alert tier. All three are
+        # deterministic, cheap, and computed over data the pipeline already
+        # has by this point, so they're added here rather than as a new
+        # pipeline stage; each is individually safe-mode-guarded above so a
+        # bug in any one of them can only omit that one field, never fail
+        # a run that would otherwise have succeeded.
+        overall_status = "awaiting_approval" if settings.require_human_approval else "approved"
+        resource_dispatch = _safe_resource_dispatch(bundle, evacuation_plan)
+        parametric_trigger = _safe_parametric_trigger(bundle)
+        alert_tier = _safe_alert_tier(bundle, overall_status)
+
         result = EventRunResult(
             event=bundle,
             gates=gates,
@@ -137,7 +201,11 @@ async def run_event_pipeline(
             evacuation_plan=evacuation_plan,
             insurer_exposure=insurer_exposure,
             counterfactual=counterfactual,
-            overall_status="awaiting_approval" if settings.require_human_approval else "approved",
+            forward_risk_forecast=forecast,
+            resource_dispatch=resource_dispatch,
+            parametric_trigger=parametric_trigger,
+            alert_tier=alert_tier,
+            overall_status=overall_status,
             approval_status=ApprovalStatus.PENDING if settings.require_human_approval else ApprovalStatus.NOT_REQUIRED,
         )
         await _emit(on_progress, "complete", {"result": result})
@@ -168,30 +236,31 @@ def _apply_red_team_contradiction(bundle: EventBundle) -> EventBundle:
 
 
 async def _compute_exposure_async(bundle, vision_evidence, confidence, settings):
-    # Exposure Agent (DeepAgents) attempted first — matches the architecture
-    # diagram's "04 Insurance / Exposure Agent". Its only tool IS
-    # compute_insurer_exposure(), so every numeric field is still that
-    # deterministic math regardless of which branch runs; the agent only
-    # adds a narrative. Falls back to calling the math directly on any
-    # DeepAgents failure — see vision_specialist.py's module docstring for
-    # the verified multi-tool-binding failure mode on this NIM account.
+    # Exposure Agent — matches the architecture diagram's "04 Insurance /
+    # Exposure Agent". Every numeric field is compute_insurer_exposure()'s
+    # deterministic math regardless of outcome; the agent only adds a
+    # narrative (see agents/exposure_agent.py for why this is now a direct
+    # call rather than a DeepAgents-wrapped one). This try/except is a
+    # second, outer safety net in case that module's own internal fallback
+    # somehow still raises.
     with governed_scope("insurer_exposure_calc", "Agent", metadata={"event_id": bundle.event_id}):
         try:
             return await run_exposure_agent(bundle, vision_evidence, confidence, settings)
-        except Exception as exc:  # noqa: BLE001 - DeepAgents harness failure -> fall back to deterministic math directly
+        except Exception as exc:  # noqa: BLE001 - unexpected failure -> fall back to deterministic math directly
             logger.warning("Exposure Agent failed (%s); falling back to direct calculation.", exc)
             return compute_insurer_exposure(bundle, vision_evidence, confidence)
 
 
 async def _compute_evacuation_async(bundle, settings, confidence):
-    # Evacuation Planner Agent (DeepAgents) attempted first — matches the
-    # architecture diagram's "03 Response / Evacuation Planner". Its only
-    # tool IS compute_evacuation_plan(), so every route/distance/duration is
-    # still that OSRM-backed math regardless of which branch runs. Falls
-    # back to calling it directly on any DeepAgents failure.
+    # Evacuation Planner Agent — matches the architecture diagram's "03
+    # Response / Evacuation Planner". Every route/distance/duration is
+    # compute_evacuation_plan()'s OSRM-backed math regardless of outcome;
+    # see agents/evacuation_agent.py for why this is now a direct call. This
+    # try/except is a second, outer safety net in case that module's own
+    # internal fallback somehow still raises.
     with governed_scope("evacuation_plan_calc", "Agent", metadata={"event_id": bundle.event_id}):
         try:
             return await run_evacuation_agent(bundle, settings, confidence=confidence)
-        except Exception as exc:  # noqa: BLE001 - DeepAgents harness failure -> fall back to deterministic routing directly
+        except Exception as exc:  # noqa: BLE001 - unexpected failure -> fall back to deterministic routing directly
             logger.warning("Evacuation Agent failed (%s); falling back to direct calculation.", exc)
             return await compute_evacuation_plan(bundle, settings, confidence=confidence)

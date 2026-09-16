@@ -3,6 +3,9 @@ import { StatTile } from "../common/StatTile";
 import { Card, CardHeader } from "../common/Card";
 import { Badge } from "../common/Badge";
 import { AiBadge } from "../common/AiBadge";
+import { ReasoningTrace } from "../common/ReasoningTrace";
+import { ParametricTriggerCard } from "../common/ParametricTriggerCard";
+import { FnolDraftCard } from "../common/FnolDraftCard";
 import { EmptyState } from "../common/States";
 import { fmtCurrency, fmtCurrencyFull, fmtPct } from "../../lib/format";
 import type { InsurerExposureLine } from "../../lib/types";
@@ -89,15 +92,27 @@ export function InsurerExposureView({ state }: { state: RunState }) {
         />
         {ie.narrative ? (
           <>
-            <AiBadge services={["NIM", "DeepAgents", "Relay"]} className="mb-2" />
-            <p className="text-sm text-body">{ie.narrative}</p>
+            <AiBadge services={["NIM", "DeepAgents", "Relay"]} className="mb-3" />
+            <p className="mb-3 text-sm text-body">{ie.narrative}</p>
           </>
         ) : (
-          <p className="text-xs text-stone">
+          <p className="mb-3 text-xs text-stone">
             The Exposure Agent's DeepAgents call fell back this run — figures below are still the same deterministic
             math (compute_insurer_exposure), just without an agent-authored narrative.
           </p>
         )}
+        <div>
+          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-mute">Reasoning path</div>
+          <ReasoningTrace
+            steps={[
+              "Evidence",
+              "Exposure Agent",
+              ie.agent_harness === "deepagents" ? "DeepAgents" : "Direct",
+              "Deterministic Math",
+              "Exposure",
+            ]}
+          />
+        </div>
       </Card>
 
       <Card>
@@ -146,6 +161,10 @@ export function InsurerExposureView({ state }: { state: RunState }) {
           </table>
         </div>
       </Card>
+
+      <ParametricTriggerCard trigger={state.parametricTrigger} />
+
+      {state.event && <FnolDraftCard eventId={state.event.event_id} lines={ie.lines} />}
 
       <Card corner>
         <CardHeader eyebrow="Methodology" title="Deterministic, Not a Black Box" />

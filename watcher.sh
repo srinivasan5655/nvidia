@@ -1,4 +1,6 @@
 #!/bin/bash
+# DEPRECATED: companion to start_docker_stack.sh, which is itself superseded
+# by start_all.sh (repo root). Kept only for reference.
 target=/raid/docker/tmp/xdg_runtime_dir_1436/docker/containerd/containerd.toml
 echo "watcher started $(date +%s.%N)"
 end=$((SECONDS+60))

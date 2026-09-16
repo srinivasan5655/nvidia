@@ -1,78 +1,71 @@
 """
-Evacuation Planner Agent — DeepAgents wrapper around the deterministic
-OSRM-based route computation, matching the architecture diagram's
-"03 Response / Evacuation Planner" role.
+Evacuation Planner Agent — narrator over the deterministic OSRM-based route
+computation, matching the architecture diagram's "03 Response / Evacuation
+Planner" role.
 
-Same discipline as exposure_agent.py: the agent's only tool IS
-compute_evacuation_plan(); every route, distance, and duration comes from
-that real routing computation, captured directly from the tool call. The
-agent's sole contribution is `narrative`, a short dispatcher-facing summary
-of the routes it read back from the tool.
+Same discipline as exposure_agent.py: every route, distance, and duration
+comes from compute_evacuation_plan()'s real routing computation, captured
+directly in our own code. The model's sole contribution is `narrative`, a
+short dispatcher-facing summary of the routes it was handed.
 
-Falls back to calling compute_evacuation_plan() directly (no agent, no
-narrative) on any failure — see vision_specialist.py's module docstring for
-the verified multi-tool-binding failure mode this fallback exists for.
+Architecture note (changed 2026-09-14, same reasoning as exposure_agent.py):
+this used to attempt a DeepAgents multi-tool agentic loop first. Verified
+live and repeatedly on this account: that tier reliably timed out — same
+failure mode documented in vision_specialist.py — so this call site was
+always paying for a failed ~10s attempt before reaching the call that
+actually produces the narrative. "Read back a route list and write two
+sentences" is a templating task, not a multi-step tool-use problem; the
+direct call is now the only tier.
 """
 from __future__ import annotations
+
+import logging
 
 from app.config import Settings
 from app.decision.evacuation import compute_evacuation_plan
 from app.models.schemas import EvacuationPlan, EventBundle
-from app.nvidia_runtime.openshell_specialist import build_fallback_chat_model
+from app.nvidia_runtime import nim_client
+from app.nvidia_runtime.relay_governance import governed_scope
 from app.nvidia_runtime.switchyard_router import resolve_reasoning_chain
 
-SYSTEM_PROMPT = """You are an evacuation planning agent. Call plan_evacuation \
-to get the deterministic candidate shelters and routes for this event — \
-never invent a shelter, route, distance, or duration yourself. Then write a \
-short (2-3 sentence) narrative for an emergency dispatcher summarizing what \
-the tool returned, flagging any route with a closure warning."""
+logger = logging.getLogger("lifeshield.evacuation_agent")
+
+SYSTEM_PROMPT = """You are an evacuation planning agent. You are given the ALREADY-COMPUTED, deterministic \
+route(s) for one event — never invent or adjust a shelter, distance, or duration. Write a short (2-3 sentence) \
+narrative for an emergency dispatcher summarizing them, flagging any route with a closure warning."""
 
 
-def _chat_model(settings: Settings):
-    from langchain_nvidia_ai_endpoints import ChatNVIDIA
-
+async def _narrative(plan: EvacuationPlan, settings: Settings) -> str:
     chain = resolve_reasoning_chain(settings, effort="low")
-    # No max_retries here: unlike ChatOpenAI, ChatNVIDIA has no such field —
-    # passing one gets forwarded straight into the request body, which NIM
-    # then rejects ("Unsupported parameter(s): max_retries").
-    return build_fallback_chat_model(chain, model_cls=ChatNVIDIA, timeout=10.0)
+    target = chain[0]
+    with governed_scope("evacuation_narrative", "Llm", metadata={"model": target.model}) as handle:
+        route_lines = "\n".join(
+            f"- {r.shelter_name}: {r.distance_km} km, {r.duration_min} min"
+            + (f" (closure warnings: {r.closure_warnings})" if r.closure_warnings else "")
+            for r in plan.routes
+        ) or "No candidate routes were found."
+        user_prompt = f"Routes:\n{route_lines}\nMethodology: {plan.methodology}"
+        return (
+            await nim_client.chat_completion(
+                chain,
+                system=SYSTEM_PROMPT,
+                user=user_prompt,
+                max_tokens=250,
+                disable_thinking=True,
+                relay_handle=handle,
+            )
+        ).strip()
 
 
 async def run_evacuation_agent(bundle: EventBundle, settings: Settings, *, confidence: float) -> EvacuationPlan | None:
-    from deepagents import create_deep_agent
-    from langchain_core.messages import HumanMessage
-    from langchain_core.tools import tool
-    from pydantic import BaseModel
-
-    class EvacuationSummary(BaseModel):
-        narrative: str
-
-    captured: dict[str, EvacuationPlan | None] = {}
-
-    @tool
-    async def plan_evacuation() -> dict:
-        """Computes the deterministic evacuation plan (candidate shelters and
-        OSRM-routed distances/durations) for this event. Call this before
-        writing your summary — never estimate routes yourself."""
-        result = await compute_evacuation_plan(bundle, settings, confidence=confidence)
-        captured["result"] = result
-        return result.model_dump() if result else {"routes": []}
-
-    agent = create_deep_agent(
-        model=_chat_model(settings),
-        tools=[plan_evacuation],
-        system_prompt=SYSTEM_PROMPT,
-        name="evacuation_agent",
-        response_format=EvacuationSummary,
-    )
-    result = await agent.ainvoke(
-        {"messages": [HumanMessage(content="Plan and summarize evacuation routes for this event.")]}
-    )
-    structured = result.get("structured_response")
-    if not isinstance(structured, EvacuationSummary) or "result" not in captured:
-        raise ValueError("Evacuation agent did not call the tool and/or return a structured summary")
-
-    plan = captured["result"]
+    plan = await compute_evacuation_plan(bundle, settings, confidence=confidence)
     if plan is None:
         return None
-    return plan.model_copy(update={"narrative": structured.narrative, "agent_harness": "deepagents"})
+    try:
+        narrative = await _narrative(plan, settings)
+        if not narrative:
+            raise ValueError("empty narrative returned")
+        return plan.model_copy(update={"narrative": narrative, "agent_harness": "direct"})
+    except Exception as exc:  # noqa: BLE001 - NIM unreachable/unconfigured -> honest degrade to math-only
+        logger.warning("Evacuation narrative call failed (%s); returning routes with no narrative.", exc)
+        return plan

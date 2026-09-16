@@ -1,10 +1,22 @@
 import type {
+  AfterActionReportResult,
+  AssistantAnswer,
+  BriefingResult,
+  CapAlertResult,
+  DecisionBrief,
+  EvalSuiteResult,
+  FnolDraft,
+  NemoEvalReport,
   EventRunResult,
+  PortfolioPmlResult,
+  ProactiveAlert,
   ProgressComplete,
   ProgressCounterfactualReady,
   ProgressEvidenceAssembled,
+  ProgressForecastReady,
   ProgressGate,
   ProgressOutputsReady,
+  ProgressSourceFetching,
   RelayRecord,
   RelayStatus,
   RuntimeConfig,
@@ -13,21 +25,6 @@ import type {
   SmsSendResult,
   SmsStatus,
 } from "./types";
-
-// Vite's `base` config (see vite.config.ts's PROXY_BASE) only rewrites Vite's
-// own asset/HMR URLs — it does NOT touch hand-written fetch()/EventSource
-// calls, which always resolve against the browser's document origin root.
-// Verified live: under JupyterHub's per-user proxy, a bare fetch("/api/...")
-// landed on https://.../api/... (not the prefixed path) and got swallowed by
-// JupyterHub's own /hub/ catch-all instead of reaching the app. Every request
-// below goes through this helper so the base path is always honored.
-// import.meta.env.BASE_URL is Vite's own resolved `base`, always trailing-
-// slash-terminated, '/' when unset. Exported since it's also needed for
-// hand-written asset URLs elsewhere (e.g. the field-image fixture src in
-// VisionSpecialistCard.tsx), not just fetch() calls.
-export function apiUrl(path: string): string {
-  return `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
-}
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -53,14 +50,13 @@ export class ApiError extends Error {
 }
 
 export const api = {
-  health: () => fetch(apiUrl("/health")).then((r) => jsonOrThrow<{ status: string; service: string }>(r)),
+  health: () => fetch("/health").then((r) => jsonOrThrow<{ status: string; service: string }>(r)),
 
-  config: () => fetch(apiUrl("/api/v1/config")).then((r) => jsonOrThrow<RuntimeConfig>(r)),
+  config: () => fetch("/api/v1/config").then((r) => jsonOrThrow<RuntimeConfig>(r)),
 
-  listEvents: () => fetch(apiUrl("/api/v1/events")).then((r) => jsonOrThrow<EventRunResult[]>(r)),
+  listEvents: () => fetch("/api/v1/events").then((r) => jsonOrThrow<EventRunResult[]>(r)),
 
-  getEvent: (eventId: string) =>
-    fetch(apiUrl(`/api/v1/events/${eventId}`)).then((r) => jsonOrThrow<EventRunResult>(r)),
+  getEvent: (eventId: string) => fetch(`/api/v1/events/${eventId}`).then((r) => jsonOrThrow<EventRunResult>(r)),
 
   replay: (body: {
     label?: string;
@@ -68,54 +64,100 @@ export const api = {
     evidence_mode?: "replay" | "live" | null;
     inject_contradiction?: boolean;
   }) =>
-    fetch(apiUrl("/api/v1/events/replay"), {
+    fetch("/api/v1/events/replay", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => jsonOrThrow<EventRunResult>(r)),
 
   approve: (eventId: string, decision: "approved" | "rejected", note?: string) =>
-    fetch(apiUrl(`/api/v1/events/${eventId}/approve`), {
+    fetch(`/api/v1/events/${eventId}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ decision, note: note ?? null }),
     }).then((r) => jsonOrThrow<EventRunResult>(r)),
 
-  relayStatus: () => fetch(apiUrl("/api/v1/relay/status")).then((r) => jsonOrThrow<RelayStatus>(r)),
+  relayStatus: () => fetch("/api/v1/relay/status").then((r) => jsonOrThrow<RelayStatus>(r)),
 
   relayTrace: (limit = 200) =>
-    fetch(apiUrl(`/api/v1/relay/trace?limit=${limit}`)).then((r) => jsonOrThrow<RelayRecord[]>(r)),
+    fetch(`/api/v1/relay/trace?limit=${limit}`).then((r) => jsonOrThrow<RelayRecord[]>(r)),
 
-  smsStatus: () => fetch(apiUrl("/api/v1/notifications/sms/status")).then((r) => jsonOrThrow<SmsStatus>(r)),
+  smsStatus: () => fetch("/api/v1/notifications/sms/status").then((r) => jsonOrThrow<SmsStatus>(r)),
 
   smsSend: (message: string) =>
-    fetch(apiUrl("/api/v1/notifications/sms/send"), {
+    fetch("/api/v1/notifications/sms/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
     }).then((r) => jsonOrThrow<SmsSendResult>(r)),
 
   smsLanguages: () =>
-    fetch(apiUrl("/api/v1/notifications/sms/languages")).then((r) => jsonOrThrow<{ languages: SmsLanguage[] }>(r)),
+    fetch("/api/v1/notifications/sms/languages").then((r) => jsonOrThrow<{ languages: SmsLanguage[] }>(r)),
 
   smsDraft: (body: { city_label: string; headline: string; guidance_points: string[]; language_code: string }) =>
-    fetch(apiUrl("/api/v1/notifications/sms/draft"), {
+    fetch("/api/v1/notifications/sms/draft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => jsonOrThrow<SmsDraftResult>(r)),
 
   smsSendTestTemplate: () =>
-    fetch(apiUrl("/api/v1/notifications/sms/send-test-template"), { method: "POST" }).then((r) =>
+    fetch("/api/v1/notifications/sms/send-test-template", { method: "POST" }).then((r) =>
       jsonOrThrow<SmsSendResult>(r),
     ),
+
+  assistantChat: (question: string, eventId: string | null) =>
+    fetch("/api/v1/assistant/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, event_id: eventId }),
+    }).then((r) => jsonOrThrow<AssistantAnswer>(r)),
+
+  evalLast: () => fetch("/api/v1/eval/last").then((r) => (r.status === 404 ? null : jsonOrThrow<EvalSuiteResult>(r))),
+
+  evalRun: () => fetch("/api/v1/eval/run", { method: "POST" }).then((r) => jsonOrThrow<EvalSuiteResult>(r)),
+
+  briefing: (eventId: string) =>
+    fetch(`/api/v1/events/${eventId}/briefing`, { method: "POST" }).then((r) => jsonOrThrow<BriefingResult>(r)),
+
+  decisionBrief: (eventId: string) =>
+    fetch(`/api/v1/events/${eventId}/decision-brief`, { method: "POST" }).then((r) =>
+      jsonOrThrow<DecisionBrief>(r),
+    ),
+
+  proactiveAlerts: () =>
+    fetch("/api/v1/events/proactive-alerts").then((r) => jsonOrThrow<ProactiveAlert[]>(r)),
+
+  nemoEvalLast: () =>
+    fetch("/api/v1/eval/nemo/last").then((r) => (r.status === 404 ? null : jsonOrThrow<NemoEvalReport>(r))),
+
+  nemoEvalRun: () => fetch("/api/v1/eval/nemo/run", { method: "POST" }).then((r) => jsonOrThrow<NemoEvalReport>(r)),
+
+  // -- Government + Insurance feature set (Product Owner review) --------
+
+  capAlert: (eventId: string) =>
+    fetch(`/api/v1/events/${eventId}/cap-alert`, { method: "POST" }).then((r) => jsonOrThrow<CapAlertResult>(r)),
+
+  afterActionReport: (eventId: string) =>
+    fetch(`/api/v1/events/${eventId}/after-action-report`, { method: "POST" }).then((r) =>
+      jsonOrThrow<AfterActionReportResult>(r),
+    ),
+
+  fnolDraft: (eventId: string, policyId: string) =>
+    fetch(`/api/v1/events/${eventId}/policies/${policyId}/fnol-draft`, { method: "POST" }).then((r) =>
+      jsonOrThrow<FnolDraft>(r),
+    ),
+
+  portfolioPml: () => fetch("/api/v1/events/portfolio/pml").then((r) => jsonOrThrow<PortfolioPmlResult>(r)),
 };
 
 export interface ReplayProgressHandlers {
+  onSourceFetching?: (payload: ProgressSourceFetching) => void;
   onEvidenceAssembled?: (payload: ProgressEvidenceAssembled) => void;
   onGate?: (payload: ProgressGate) => void;
   onOutputsReady?: (payload: ProgressOutputsReady) => void;
   onCounterfactualReady?: (payload: ProgressCounterfactualReady) => void;
+  onForecastReady?: (payload: ProgressForecastReady) => void;
   onComplete?: (payload: ProgressComplete) => void;
   onError?: (err: unknown) => void;
 }
@@ -154,9 +196,7 @@ export function streamReplay(
   };
 
   try {
-    const url = apiUrl(
-      `/api/v1/events/replay/stream?label=${encodeURIComponent(label)}&city=${city}&evidence_mode=${evidenceMode}&inject_contradiction=${injectContradiction}`,
-    );
+    const url = `/api/v1/events/replay/stream?label=${encodeURIComponent(label)}&city=${city}&evidence_mode=${evidenceMode}&inject_contradiction=${injectContradiction}`;
     es = new EventSource(url);
 
     // 220s: worst case runs 4 sequential DeepAgents attempts (vision,
@@ -176,6 +216,9 @@ export function streamReplay(
     // wasted GPU time and a confusing double-run, so it's worth avoiding.
     const watchdog = window.setTimeout(() => fallback(new Error("SSE stream timed out")), 220000);
 
+    es.addEventListener("source_fetching", (ev) => {
+      handlers.onSourceFetching?.(JSON.parse((ev as MessageEvent).data));
+    });
     es.addEventListener("evidence_assembled", (ev) => {
       handlers.onEvidenceAssembled?.(JSON.parse((ev as MessageEvent).data));
     });
@@ -187,6 +230,9 @@ export function streamReplay(
     });
     es.addEventListener("counterfactual_ready", (ev) => {
       handlers.onCounterfactualReady?.(JSON.parse((ev as MessageEvent).data));
+    });
+    es.addEventListener("forecast_ready", (ev) => {
+      handlers.onForecastReady?.(JSON.parse((ev as MessageEvent).data));
     });
     es.addEventListener("complete", (ev) => {
       settled = true;

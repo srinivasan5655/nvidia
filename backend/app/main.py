@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import FIXTURES_DIR, get_settings
 from app.nvidia_runtime.relay_governance import init_relay
-from app.routers import events, notifications, relay
+from app.routers import assistant, eval as eval_router, events, notifications, relay
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,7 +30,11 @@ app = FastAPI(title="LifeShield AI", version="0.1.0", lifespan=lifespan)
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allow_origins,
+    # Wide open: allow_origin_regex reflects whatever Origin the browser
+    # actually sent (rather than a literal "*", which browsers refuse to
+    # combine with allow_credentials=True) -- so every origin is allowed,
+    # not just the localhost:5173 default in settings.cors_allow_origins.
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +43,8 @@ app.add_middleware(
 app.include_router(events.router)
 app.include_router(relay.router)
 app.include_router(notifications.router)
+app.include_router(assistant.router)
+app.include_router(eval_router.router)
 
 # Serves app/evidence/fixtures/field_image_flood.jpg (and the other fixture
 # files) so the browser can render the same field image the vision
@@ -62,4 +68,5 @@ async def config():
         "openshell_enabled": s.openshell_enabled,
         "confidence_gate_min": s.confidence_gate_min,
         "require_human_approval": s.require_human_approval,
+        "hide_passed_gates": s.hide_passed_gates,
     }

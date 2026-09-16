@@ -12,10 +12,13 @@ import {
   IconHeartPulse,
   IconDollar,
   IconGauge,
+  IconFlask,
+  IconFileText,
+  IconBriefcase,
 } from "../common/Icons";
 import { CITY_INFO } from "../../lib/format";
 import type { ViewId } from "../../App";
-import type { CityKey } from "../../lib/types";
+import type { CityKey, Persona } from "../../lib/types";
 
 export const NAV_ICONS: Record<ViewId, ComponentType<{ className?: string }>> = {
   home: IconHome,
@@ -26,9 +29,12 @@ export const NAV_ICONS: Record<ViewId, ComponentType<{ className?: string }>> = 
   history: IconHistory,
   runtime: IconRobot,
   observability: IconGauge,
+  eval: IconFlask,
   evidence: IconLayers,
   "life-safety": IconHeartPulse,
   exposure: IconDollar,
+  briefing: IconFileText,
+  portfolio: IconBriefcase,
 };
 
 interface NavGroup {
@@ -36,29 +42,112 @@ interface NavGroup {
   items: { id: ViewId; label: string }[];
 }
 
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Operate",
-    items: [
-      { id: "home", label: "Home" },
-      { id: "alerts", label: "Alerts" },
-      { id: "map", label: "Map & Safe Places" },
-      { id: "whatif", label: "What If" },
-      { id: "sms", label: "SMS Console" },
-      { id: "history", label: "History" },
-    ],
-  },
-  {
-    label: "Data & Systems",
-    items: [
-      { id: "runtime", label: "Agentic Runtime" },
-      { id: "observability", label: "Observability" },
-      { id: "evidence", label: "Evidence" },
-      { id: "life-safety", label: "Life Safety" },
-      { id: "exposure", label: "Insurer Exposure" },
-    ],
-  },
-];
+const HOME_LABEL: Record<Persona, string> = {
+  command: "Command",
+  insurance: "Exposure Overview",
+  field: "Home",
+  executive: "Overview",
+};
+
+/** Persona-specific information architecture — same ViewIds, same
+ * underlying data, reordered and regrouped toward what each world asks
+ * first (see the Command OS blueprint's IA section). Field intentionally
+ * gets the smallest set: a responder on a phone doesn't need Agentic
+ * Runtime or the golden dataset, and hiding those isn't a limitation,
+ * it's the point of a persona-scoped nav. */
+export function navGroupsFor(persona: Persona): NavGroup[] {
+  const home = { id: "home" as ViewId, label: HOME_LABEL[persona] };
+
+  if (persona === "field") {
+    return [
+      {
+        label: "Respond",
+        items: [home, { id: "map", label: "Map & Safe Places" }, { id: "alerts", label: "Alerts" }, { id: "sms", label: "SMS Console" }],
+      },
+    ];
+  }
+
+  if (persona === "executive") {
+    return [
+      {
+        label: "Executive",
+        items: [
+          home,
+          { id: "briefing", label: "Executive Brief" },
+          { id: "portfolio", label: "Portfolio" },
+          { id: "map", label: "Living World" },
+          { id: "history", label: "History" },
+        ],
+      },
+    ];
+  }
+
+  if (persona === "insurance") {
+    return [
+      {
+        label: "Command",
+        items: [
+          home,
+          { id: "exposure", label: "Impact & Insurance" },
+          { id: "portfolio", label: "Portfolio" },
+          { id: "evidence", label: "Evidence" },
+        ],
+      },
+      {
+        label: "Response",
+        items: [
+          { id: "map", label: "Living World" },
+          { id: "whatif", label: "Simulation Lab" },
+          { id: "life-safety", label: "Life Safety" },
+          { id: "alerts", label: "Alerts" },
+          { id: "sms", label: "SMS Console" },
+        ],
+      },
+      {
+        label: "Reports & AI",
+        items: [
+          { id: "briefing", label: "Executive Brief" },
+          { id: "history", label: "History" },
+          { id: "runtime", label: "Agentic Runtime" },
+          { id: "observability", label: "Observability" },
+          { id: "eval", label: "Golden Dataset" },
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "Command",
+      items: [
+        home,
+        { id: "alerts", label: "Alerts" },
+        { id: "map", label: "Living World" },
+        { id: "whatif", label: "Simulation Lab" },
+        { id: "portfolio", label: "Portfolio" },
+      ],
+    },
+    {
+      label: "Response",
+      items: [
+        { id: "sms", label: "SMS Console" },
+        { id: "life-safety", label: "Life Safety" },
+        { id: "exposure", label: "Impact & Insurance" },
+      ],
+    },
+    {
+      label: "Reports & AI",
+      items: [
+        { id: "briefing", label: "Executive Brief" },
+        { id: "history", label: "History" },
+        { id: "runtime", label: "Agentic Runtime" },
+        { id: "observability", label: "Observability" },
+        { id: "eval", label: "Golden Dataset" },
+        { id: "evidence", label: "Evidence" },
+      ],
+    },
+  ];
+}
 
 const CITIES: CityKey[] = ["houston", "chennai", "bangalore"];
 
@@ -105,31 +194,22 @@ export function Sidebar({
   city,
   onCityChange,
   cityDisabled,
+  persona,
 }: {
   activeView: ViewId;
   onNavigate: (v: ViewId) => void;
   city: CityKey;
   onCityChange: (c: CityKey) => void;
   cityDisabled: boolean;
+  persona: Persona;
 }) {
+  const navGroups = navGroupsFor(persona);
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r border-hairline/80 bg-canvas/80 px-4 py-6 backdrop-blur-md">
-      <div className="flex items-center gap-2.5 px-1">
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-green-pale to-primary shadow-[0_4px_16px_-2px_rgba(118,185,0,0.6)]">
-          <span className="h-3 w-3 rounded-sm bg-on-primary/90" />
-        </span>
-        <div className="leading-tight">
-          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-mute">NVIDIA GSI Hackathon</div>
-          <div className="bg-gradient-to-r from-ink to-body bg-clip-text text-sm font-extrabold uppercase tracking-wide text-transparent">
-            LifeShield AI
-          </div>
-        </div>
-      </div>
-
+    <aside className="sticky top-14 flex h-[calc(100vh-56px)] w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r border-hairline/80 bg-canvas/80 px-4 py-6 backdrop-blur-md">
       <CitySelect city={city} onChange={onCityChange} disabled={cityDisabled} />
 
       <nav className="flex flex-1 flex-col gap-5">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label} className="flex flex-col gap-1">
             <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-mute">{group.label}</div>
             {group.items.map((item) => {

@@ -1,0 +1,12 @@
+# NeMo Guardrails config for the bias/fairness check used by the NeMo
+# Evaluator suite (app/eval/nemo_evaluator_suite.py) — same schema-
+# placeholder pattern as every other guardrails config in this app.
+models:
+  - type: main
+    engine: nvidia_ai_endpoints
+    model: placeholder
+
+rails:
+  input:
+    flows:
+      - self check input

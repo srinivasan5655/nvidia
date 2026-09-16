@@ -1,4 +1,11 @@
 #!/bin/bash
+# DEPRECATED: superseded by start_all.sh (repo root). This script's custom
+# containerd-fuse-overlayfs-grpc snapshotter workaround turned out to be
+# unnecessary -- verified live that the suspected /etc/shadow lchown bug
+# doesn't require it; the cluster's own officially-supported path
+# (`module load rootless-docker`, plain overlay2) works cleanly. Kept here
+# only for reference; use start_all.sh + end_all.sh instead.
+#
 # Reliable full-stack startup for LifeShield's OpenShell + rootless Docker setup on this node.
 #
 # WHY THIS IS COMPLICATED (read before touching):
@@ -36,16 +43,6 @@
 # for PHASE 2 (gateway + port-forward + backend), which needs the child PID phase 1 discovers.
 set -e
 
-# Resolve relative to THIS script's own location, not a hardcoded team/path
-# name -- verified live on dgx08 2026-09-14 that a stale hardcoded absolute
-# path (an old .../nvidia_hackathon/ checkout, not the real .../nvidia/ one)
-# was silently running a different, out-of-date watcher.sh than the one
-# sitting right next to this script. That's a correctness trap: fixes made
-# to the real checkout's watcher.sh would never take effect. This resolves
-# through symlinks too (readlink -f), so it's correct regardless of which
-# directory name or checkout path this repo lives under on a given account.
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-
 export PATH=/cm/shared/apps/rootless-docker/bin:$HOME/.local/bin:$PATH
 export XDG_RUNTIME_DIR=/raid/docker/tmp/xdg_runtime_dir_1436
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
@@ -61,24 +58,10 @@ sleep 2
 echo "--- clean state (required -- partial wipes leave stale containerd metadata conflicts) ---"
 rm -rf ~/.local/share/docker /raid/docker/tmp/fuse-ovl-root
 mkdir -p /raid/docker/tmp/fuse-ovl-root
-# dockerd-rootless.sh hard-requires XDG_RUNTIME_DIR to already exist and be
-# writable (its own startup check: `[ -w "$XDG_RUNTIME_DIR" ] || exit 1`) --
-# verified live on dgx08 2026-09-14: without this, dockerd-rootless.sh exits
-# 1 immediately, before rootlesskit ever launches, which cascades into every
-# later step failing (pgrep finds nothing, CHILD_PID ends up empty, the
-# watcher never sees a containerd.toml to patch). 0700 matches the XDG Base
-# Directory spec for a runtime dir holding sockets.
-mkdir -p "$XDG_RUNTIME_DIR"
-chmod 700 "$XDG_RUNTIME_DIR"
 
 echo "--- starting watcher (races to patch containerd.toml with our proxy snapshotter) ---"
 rm -f "$XDG_RUNTIME_DIR/docker/containerd/containerd.toml"
-# Invoked via `bash` explicitly, not relying on the file's own +x bit --
-# verified live on dgx08 2026-09-14 that watcher.sh's executable bit doesn't
-# survive however this repo gets onto the cluster (git itself has it tracked
-# as mode 100755; the on-disk copy after transfer didn't), which made a
-# direct exec fail with "Permission denied". `bash script.sh` never needs +x.
-nohup bash "$SCRIPT_DIR/watcher.sh" > /raid/docker/tmp/watcher.log 2>&1 &
+nohup /storage/hackathon_teams/gsh-team11/nvidia_hackathon/watcher.sh > /raid/docker/tmp/watcher.log 2>&1 &
 disown
 
 echo "--- starting dockerd (rootless, containerd-snapshotter feature, fuse-overlayfs driver) ---"
@@ -106,10 +89,8 @@ cat << EOF
 
 Phase 1 done. Child PID for namespace-scoped commands: $CHILD_PID
 
-PHASE 2: run $SCRIPT_DIR/start_openshell_gateway.sh — it automates exactly the
-steps below (bridge-IP sync, gateway nsenter, port-forward registration,
-sandbox image build) against this same child pid, rediscovered the same way
-this script found it. Manual equivalent, if you need to adapt a step:
+PHASE 2 (run manually / adapt as needed -- not automated here since it also touches the
+already-running backend):
 
   1) Sync the gateway's bridge IP:
      BRIDGE_IP=\$(docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}')
@@ -132,9 +113,8 @@ this script found it. Manual equivalent, if you need to adapt a step:
   5) Rebuild the sandbox image if the image cache was wiped:
      cd /tmp/sandbox-img && DOCKER_BUILDKIT=0 docker build -t lifeshield-sandbox-py:latest .
 
-  6) Start/restart the backend (outer namespace, normal) — adjust the path below
-     if this checkout doesn't live at $SCRIPT_DIR/backend:
-     cd $SCRIPT_DIR/backend && \\
+  6) Start/restart the backend (outer namespace, normal):
+     cd /storage/hackathon_teams/gsh-team11/nvidia_hackathon/backend && \\
        .venv_run/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8010
 
 EOF

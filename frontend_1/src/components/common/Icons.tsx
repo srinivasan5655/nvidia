@@ -134,6 +134,74 @@ export function IconGauge(props: IconProps) {
   );
 }
 
+export function IconFileText(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8M8 17h8M8 9h2" />
+    </svg>
+  );
+}
+
+export function IconCommand(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+export function IconBuilding(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 22V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v18" />
+      <path d="M15 22V11a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v11" />
+      <path d="M8 6h2M8 10h2M8 14h2M8 18h2" />
+    </svg>
+  );
+}
+
+export function IconBriefcase(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M3 12h18" />
+    </svg>
+  );
+}
+
+export function IconLogOut(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
+export function IconChevronUpDown(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m7 15 5 5 5-5" />
+      <path d="m7 9 5-5 5 5" />
+    </svg>
+  );
+}
+
+export function IconFlask(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9 2v6.5L4.5 17a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 8.5V2" />
+      <path d="M9 2h6" />
+      <path d="M7.5 14h9" />
+    </svg>
+  );
+}
+
 export function IconLayers(props: IconProps) {
   return (
     <svg {...base} {...props}>

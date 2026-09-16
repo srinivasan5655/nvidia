@@ -33,8 +33,9 @@ task complexity (a classifier/judge picking "strong" vs "weak"), never by
 backend health. So "vLLM primary, build.nvidia.com backup" is implemented
 here, at the application level, as an ordered `list[LlmTarget]`: nim_client.py
 (direct calls) and the DeepAgents chat-model builders (via
-`.with_fallbacks()`) both walk the list in order and move to the next
-target only on a connection/timeout/5xx failure.
+`build_fallback_chat_model` / LangChain's `.with_fallbacks()`) both walk the
+list in order and move to the next target only on a connection/timeout/5xx
+failure.
 
 This only engages when `runtime_target="auto"` (the default) — an explicit
 `"dev"` or `"prod"` pin stays a hard pin with no failover, preserving the
@@ -45,21 +46,28 @@ toggle. When `nim_prod_base_url` is unset (today's actual state), the chain
 always collapses to the single dev target — identical behavior to before
 this was added.
 
---- Prod eligibility is per model, not just per environment ---
+--- Prod eligibility, and prod endpoint, are both per model ---
 
-A self-hosted NIM/vLLM instance serves exactly one model (verified against a
-real instance on Curiosity v2: NGC's `nim/nvidia/nemotron-3-super-120b-a12b`
-container only answers for that one model). `nim_prod_base_url` is a single
-config field, but that does NOT mean every call kind should route to it —
-today only the high-effort reasoning model has a self-hosted instance;
-low-effort reasoning (`nemotron-3.5-lightning-30b-a3b`) and vision
-(`llama-3.2-11b-vision-instruct`) do not. Routing those to a NIM instance
-that doesn't have the model loaded would 404 — a 4xx, deliberately excluded
-from nim_client.py's failover set (a 4xx means a real bug, not an outage;
-masking it by silently falling back would hide exactly the kind of
-misconfiguration this comment describes). So each `resolve_*_chain` function
-below passes its own `prod_eligible` flag to `_resolve_chain`, and
-`_resolve_chain` treats "not eligible" as "no prod deployment exists for
+A self-hosted NIM/vLLM instance serves exactly one model per port (verified
+against real instances on Curiosity v2). Three self-hosted deployments exist
+today, one per port:
+  - `nim_prod_base_url`       -> 120b nemotron-3-super (high-effort reasoning)
+  - `nim_prod_light_base_url` -> 30b nemotron-3.5-lightning, fine-tuned
+                                  (low-effort reasoning) — a SEPARATE port
+                                  from the 120b instance, not the same one
+  - `nemo_retriever_self_hosted_url` -> nemotron-3-embed-1b (embeddings;
+                                  see retriever_client.py, not this module)
+Vision (`llama-3.2-11b-vision-instruct`) has no self-hosted deployment at
+all — it always routes to build.nvidia.com, chain of one, no failover to
+fail over to.
+
+Routing an effort tier to the wrong prod port (e.g. low-effort to the 120b
+instance) would 404 — a 4xx, deliberately excluded from nim_client.py's
+failover set (a 4xx means a real bug, not an outage; masking it by silently
+falling back would hide exactly the kind of misconfiguration this comment
+describes). So each `resolve_*_chain` function below resolves its OWN prod
+base_url/api_key pair and passes them to `_resolve_chain`, which treats an
+unset prod URL for that specific tier as "no prod deployment exists for
 this model" — always dev, even under an explicit `runtime_target=prod` pin,
 because that pin can't be honored for a model prod was never given.
 """
@@ -91,68 +99,67 @@ def resolve_vision_target(settings: Settings) -> LlmTarget:
 
 
 def resolve_reasoning_chain(settings: Settings, *, effort: ReasoningEffort = "high") -> list[LlmTarget]:
-    model = settings.nim_reasoning_model if effort == "high" else settings.nim_reasoning_model_light
-    logger.info("Switchyard: reasoning effort=%s -> model=%s", effort, model)
-    # Only the high-effort model has a self-hosted prod instance today (see
-    # module docstring) — low-effort stays dev-only until a prod deployment
-    # of nemotron-3.5-lightning actually exists.
-    return _resolve_chain(settings, model=model, prod_eligible=(effort == "high"))
-
-
-def resolve_vision_chain(settings: Settings) -> list[LlmTarget]:
-    # No self-hosted vision NIM exists yet — see module docstring.
-    return _resolve_chain(settings, model=settings.nim_vision_model, prod_eligible=False)
-
-
-def _target(settings: Settings, *, model: str, prod: bool) -> LlmTarget:
-    if prod:
-        return LlmTarget(
-            id="curiosity-nim-prod",
-            model=model,
-            base_url=settings.nim_prod_base_url,
-            api_key=settings.nim_prod_api_key or "not-required",
-            format="openai",
-        )
-    return LlmTarget(
-        id="build-nvidia-dev",
-        model=model,
-        base_url=settings.nvidia_base_url,
-        api_key=settings.nvidia_api_key or "",
-        format="openai",
+    # Each effort tier has its OWN self-hosted port (see module docstring) —
+    # never share one prod endpoint across both models. prod_model defaults
+    # to the dev/catalog name and is only overridden when vLLM registered
+    # the model under a different name (e.g. its full HF repo path).
+    if effort == "high":
+        dev_model = settings.nim_reasoning_model
+        prod_base_url, prod_api_key = settings.nim_prod_base_url, settings.nim_prod_api_key
+        prod_model, prod_id = settings.nim_prod_model or dev_model, "curiosity-nim-prod-120b"
+    else:
+        dev_model = settings.nim_reasoning_model_light
+        prod_base_url, prod_api_key = settings.nim_prod_light_base_url, settings.nim_prod_light_api_key
+        prod_model, prod_id = settings.nim_prod_light_model or dev_model, "curiosity-nim-prod-30b"
+    logger.info("Switchyard: reasoning effort=%s -> dev_model=%s prod_model=%s", effort, dev_model, prod_model)
+    return _resolve_chain(
+        settings, dev_model=dev_model, prod_model=prod_model,
+        prod_base_url=prod_base_url, prod_api_key=prod_api_key, prod_id=prod_id,
     )
 
 
-def _resolve_chain(settings: Settings, *, model: str, prod_eligible: bool) -> list[LlmTarget]:
-    dev = _target(settings, model=model, prod=False)
+def resolve_vision_chain(settings: Settings) -> list[LlmTarget]:
+    # No self-hosted vision NIM exists — see module docstring. Always dev.
+    return _resolve_chain(
+        settings, dev_model=settings.nim_vision_model, prod_model=settings.nim_vision_model,
+        prod_base_url=None, prod_api_key=None, prod_id="",
+    )
+
+
+def _target(*, model: str, base_url: str, api_key: str | None, target_id: str) -> LlmTarget:
+    return LlmTarget(id=target_id, model=model, base_url=base_url, api_key=api_key or "not-required", format="openai")
+
+
+def _resolve_chain(
+    settings: Settings, *, dev_model: str, prod_model: str,
+    prod_base_url: str | None, prod_api_key: str | None, prod_id: str,
+) -> list[LlmTarget]:
+    dev = LlmTarget(
+        id="build-nvidia-dev", model=dev_model, base_url=settings.nvidia_base_url,
+        api_key=settings.nvidia_api_key or "", format="openai",
+    )
 
     if settings.runtime_target == "dev":
         logger.info("Switchyard: routing to DEV build.nvidia.com (pinned)")
         return [dev]
 
-    if not settings.nim_prod_base_url:
-        if settings.runtime_target == "prod":
-            raise RuntimeError("runtime_target=prod but NIM_PROD_BASE_URL is not configured")
-        logger.info("Switchyard: routing to DEV build.nvidia.com (prod not configured)")
-        return [dev]
-
-    if not prod_eligible:
+    if not prod_base_url:
         if settings.runtime_target == "prod":
             logger.warning(
-                "Switchyard: runtime_target=prod but model=%s has no self-hosted prod deployment "
-                "(NIM_PROD_BASE_URL only serves the high-effort reasoning model); routing to DEV instead "
-                "of pinning to a NIM instance that doesn't have this model loaded.",
-                model,
+                "Switchyard: runtime_target=prod but model=%s has no self-hosted prod deployment configured; "
+                "routing to DEV instead of pinning to a NIM instance that doesn't exist for this model.",
+                dev_model,
             )
-        logger.info("Switchyard: routing to DEV build.nvidia.com (model=%s not deployed to prod)", model)
+        logger.info("Switchyard: routing to DEV build.nvidia.com (no prod deployment configured for model=%s)", dev_model)
         return [dev]
 
-    prod = _target(settings, model=model, prod=True)
+    prod = _target(model=prod_model, base_url=prod_base_url, api_key=prod_api_key, target_id=prod_id)
     if settings.runtime_target == "prod":
-        logger.info("Switchyard: routing to PROD self-hosted NIM (%s, pinned)", settings.nim_prod_base_url)
+        logger.info("Switchyard: routing to PROD self-hosted NIM (%s, model=%s, pinned)", prod_base_url, prod_model)
         return [prod]
 
     logger.info(
-        "Switchyard: routing to PROD self-hosted NIM (%s) with DEV build.nvidia.com as failover",
-        settings.nim_prod_base_url,
+        "Switchyard: routing to PROD self-hosted NIM (%s, model=%s) with DEV build.nvidia.com as failover",
+        prod_base_url, prod_model,
     )
     return [prod, dev]

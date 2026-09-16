@@ -14,7 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -81,9 +81,42 @@ class Settings(BaseSettings):
     # reusing this setting — see that function's comment for the full story.
     nim_vision_model: str = "meta/llama-3.2-11b-vision-instruct"
 
+    # --- Cost estimation ---
+    # build.nvidia.com's hosted catalog publishes no per-token price — it's
+    # free for prototyping under the NVIDIA Developer Program, so there is
+    # no real dollar figure to report today. These are a stand-in generic
+    # LLM-API rate (NOT sourced from or billed by NVIDIA) so Observability
+    # can show a labeled *estimated* cost instead of no cost signal at all.
+    # Override both if you're on a paid tier or a self-hosted deployment
+    # with a real cost basis — see relay_governance.py's record_call_metrics.
+    nim_cost_per_1k_input_usd: float = 0.0002
+    nim_cost_per_1k_output_usd: float = 0.0006
+
     # --- NVIDIA runtime: self-hosted NIM on Curiosity v2 (prod) ---
-    nim_prod_base_url: str | None = None
+    # Two separate self-hosted deployments, on two separate ports: the
+    # 120b high-effort reasoning model and the 30b (fine-tuned) low-effort
+    # reasoning model each run as their own vLLM/NIM instance and are NOT
+    # interchangeable — a self-hosted server only ever serves the one model
+    # it was launched with (see switchyard_router.py's module docstring).
+    # Vision (11b) has no self-hosted deployment; it always routes to
+    # build.nvidia.com.
+    nim_prod_base_url: str | None = None  # 120b nemotron-3-super, high-effort
     nim_prod_api_key: str | None = None
+    nim_prod_light_base_url: str | None = None  # 30b nemotron-3.5-lightning (fine-tuned), low-effort
+    nim_prod_light_api_key: str | None = None
+    # Optional overrides for the `model` string sent to each self-hosted
+    # endpoint, when it differs from the build.nvidia.com catalog name above
+    # (nim_reasoning_model / nim_reasoning_model_light). vLLM registers a
+    # model under whatever name it was launched with -- verified live that a
+    # fine-tuned checkpoint served via vLLM can register under its full HF
+    # repo path (e.g. "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16"),
+    # not the shorthand catalog id build.nvidia.com uses. Sending the wrong
+    # one 404s silently (nim_client.py's caller degrades to a fallback
+    # instead of crashing, so this is easy to miss without checking
+    # GET <prod_base_url>/models). Leave unset when the two names happen to
+    # match (true for nim_reasoning_model/120b as of this writing).
+    nim_prod_model: str | None = None
+    nim_prod_light_model: str | None = None
 
     # deterministic router: "dev" pins build.nvidia.com, "prod" pins self-hosted NIM,
     # "auto" (default) uses prod when nim_prod_base_url is configured, else dev.
@@ -98,8 +131,31 @@ class Settings(BaseSettings):
     openshell_endpoint: str | None = None
     openshell_bearer_token: str | None = None
     openshell_cluster: str | None = None
-    openshell_workspace: str = "lifeshield-specialists"
-    openshell_sandbox_image: str = "lifeshield-sandbox-py:latest"
+    # "default" is the only workspace guaranteed to exist -- the OpenShell CLI
+    # has no command to create a named workspace, and "lifeshield-specialists"
+    # (this field's value before 2026-09-16) was never provisioned on the
+    # gateway, causing every sandboxed specialist call to fail with a gRPC
+    # NOT_FOUND ("workspace 'lifeshield-specialists' not found"), verified
+    # live on the Curiosity v2 cluster.
+    openshell_workspace: str = "default"
+    # Empty by default -- an unset `SandboxTemplate.image` (proto3 zero value)
+    # is the exact same wire request the CLI sends when `--from` is omitted,
+    # which lets the gateway pick its own default sandbox image. That default
+    # image is a hard requirement here, not just a convenience: OpenShell's
+    # in-container supervisor validates that a `sandbox` user/group (uid/gid
+    # 998) already exists in the image before it'll run anything, and the
+    # default image has that baked in. Both prior attempts failed this same
+    # validation -- "lifeshield-sandbox-py:latest" (a local-only image whose
+    # Dockerfile lived in ephemeral /tmp and is gone, so the gateway 404'd
+    # trying to pull it from a registry) and, after that, the stock
+    # "python:3.12-slim" (pulled fine, but has no `sandbox` user, so the
+    # supervisor killed the container immediately with no other error) --
+    # both verified live on Curiosity v2. flood_vision.py (the only thing
+    # that runs in this sandbox) is stdlib-only, so the default image's own
+    # bundled Python is already more than enough; only override this if a
+    # specialist ever needs something the default image doesn't have, and
+    # any replacement image must itself include the `sandbox` user/group.
+    openshell_sandbox_image: str = ""
 
     # --- Decision gate thresholds (deterministic, not LLM-decided) ---
     confidence_gate_min: float = 0.55
@@ -108,6 +164,27 @@ class Settings(BaseSettings):
 
     # --- Human approval ---
     require_human_approval: bool = True
+
+    # --- Frontend display toggles ---
+    # Hides the "passed" status badge on the Agentic Runtime gate pipeline
+    # cards -- passing is the expected/silent state, so this lets a deployment
+    # declutter the UI down to just the gates that need attention
+    # (blocked/degraded), without touching gate logic itself.
+    hide_passed_gates: bool = False
+
+    # --- NeMo Retriever (assistant chat's grounding embeddings) ---
+    # Same dev/prod split as the reasoning/vision NIM targets above: an
+    # optional self-hosted embedding NIM endpoint (requires a Linux/Docker
+    # host — NeMo Retriever microservices ship as NIM containers, same
+    # constraint as OpenShell) falling back to the hosted build.nvidia.com
+    # embedding endpoint, which needs nothing but nvidia_api_key.
+    nemo_retriever_self_hosted_url: str | None = None
+    # Verified working on this account/build.nvidia.com as of 2026-09-13 —
+    # nvidia/nv-embedqa-e5-v5 (the more commonly documented choice) returned
+    # HTTP 410 Gone (retired), and several other catalog embedding models
+    # 404 ("Function ... Not found for account") the same way
+    # nvidia/neva-22b does elsewhere in this app; this one is confirmed live.
+    nemo_retriever_embed_model: str = "nvidia/nemotron-3-embed-1b"
 
     # --- Demo SMS console (Twilio) ---
     # All optional and unset by default — the SMS console degrades to a
@@ -120,6 +197,27 @@ class Settings(BaseSettings):
     twilio_auth_token: str | None = Field(default=None, alias="TWILIO_AUTH_TOKEN")
     twilio_from_number: str | None = Field(default=None, alias="TWILIO_FROM_NUMBER")
     sms_demo_recipient: str | None = Field(default=None, alias="SMS_DEMO_RECIPIENT")
+
+    # .env.example ships lines like `SMS_DEMO_RECIPIENT=            # comment`
+    # so the field reads as blank until a real value is filled in before the
+    # `#`. python-dotenv strips a trailing comment correctly once there's a
+    # real token before it, but when the value is left blank it hands back
+    # the comment text itself as the "value" (confirmed against the
+    # installed python-dotenv) — silently polluting is_configured() checks
+    # and the masked-number status display with template prose instead of
+    # None. Treat anything that's empty or comment-only, once stripped, as
+    # genuinely unset for every optional secret/number field that follows
+    # this same .env.example convention.
+    @field_validator(
+        "nvidia_api_key", "twilio_account_sid", "twilio_auth_token", "twilio_from_number", "sms_demo_recipient",
+        mode="before",
+    )
+    @classmethod
+    def _blank_or_comment_only_to_none(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        stripped = v.strip()
+        return None if (not stripped or stripped.startswith("#")) else v
 
 
 @lru_cache

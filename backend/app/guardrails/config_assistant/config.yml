@@ -1,0 +1,14 @@
+# NeMo Guardrails config for the Assistant panel — moderates the operator's
+# free-typed question before it reaches NeMo Retriever/NIM. Same schema-
+# placeholder pattern as app/guardrails/config/config.yml (SMS console):
+# the real LLM instance is always passed explicitly as
+# `LLMRails(config, llm=...)` from app/guardrails/assistant_rails.py.
+models:
+  - type: main
+    engine: nvidia_ai_endpoints
+    model: placeholder
+
+rails:
+  input:
+    flows:
+      - self check input

@@ -32,6 +32,7 @@ from app.agents.vision_specialist import (
 )
 from app.config import Settings
 from app.models.schemas import EventBundle, GateResult, GateStatus
+from app.nvidia_runtime.circuit_breaker import deepagents_breaker
 from app.nvidia_runtime.relay_governance import governed_scope, scope_id
 
 logger = logging.getLogger("lifeshield.openshell")
@@ -65,12 +66,20 @@ async def run_openshell_supervisor(bundle: EventBundle, settings: Settings) -> t
                 # details.vision_harness (set below, after we know) is the
                 # reliable field; don't infer harness from this scope alone.
                 with governed_scope("flood_vision_specialist", "Agent", metadata={"sandboxed": False, "harness_attempted": "deepagents"}) as vision_handle:
-                    try:
-                        evidence = await run_vision_specialist_via_deepagent(settings, image_path=bundle.field_image_path)
-                    except Exception as exc:  # noqa: BLE001 - structured-output binding can fail on a given model; fall back, don't crash the gate
-                        logger.warning(
-                            "DeepAgents vision specialist failed (%s); falling back to the direct NIM call path.", exc
-                        )
+                    evidence = None
+                    if deepagents_breaker.allow_attempt():
+                        try:
+                            evidence = await run_vision_specialist_via_deepagent(settings, image_path=bundle.field_image_path)
+                            deepagents_breaker.record_success()
+                        except Exception as exc:  # noqa: BLE001 - structured-output binding can fail on a given model; fall back, don't crash the gate
+                            deepagents_breaker.record_failure()
+                            logger.warning(
+                                "DeepAgents vision specialist failed (%s); falling back to the direct NIM call path.", exc
+                            )
+                    else:
+                        logger.info("Circuit breaker open for 'deepagents' — skipping straight to the direct NIM call.")
+
+                    if evidence is None:
                         evidence = await run_vision_specialist_locally(
                             settings, image_path=bundle.field_image_path, relay_handle=vision_handle
                         )
@@ -121,8 +130,18 @@ async def _run_in_sandbox(bundle: EventBundle, settings: Settings) -> tuple[Dama
 
     from app.specialists import flood_vision as specialist_module
 
+    # `command` keeps the container's main process alive for the lifetime of
+    # this `with` block so the exec() calls below have something to attach
+    # to. Without it, the gateway defaults to launching an interactive login
+    # shell (`/bin/bash -l`) as the canonical process, which — with no TTY or
+    # stdin attached in this non-interactive SDK path — hits EOF and exits
+    # immediately, landing the sandbox in an error phase before any exec()
+    # call runs. Verified live on Curiosity v2: `python:3.12-slim` pulled
+    # fine, then "Container exited" right after start, with this exact
+    # symptom.
     spec = openshell_pb2.SandboxSpec(
         template=openshell_pb2.SandboxTemplate(image=settings.openshell_sandbox_image),
+        command=["sleep", "infinity"],
     )
     # Sandbox names are capped at 19 chars by the gateway; hash the event id
     # down to a short, still-collision-resistant suffix.

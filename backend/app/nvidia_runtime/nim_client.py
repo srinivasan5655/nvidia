@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import time
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -24,7 +25,8 @@ import openai
 from openai import AsyncOpenAI
 from switchyard import LlmTarget
 
-from app.nvidia_runtime.relay_governance import record_token_usage
+from app.config import get_settings
+from app.nvidia_runtime.relay_governance import estimate_cost_usd, record_call_metrics
 
 logger = logging.getLogger("lifeshield.nim")
 
@@ -39,15 +41,20 @@ def _client_for(target: LlmTarget) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=target.base_url, api_key=target.api_key or "not-required")
 
 
-def _record_usage(relay_handle: Any, target: LlmTarget, usage: Any) -> None:
+def _record_usage(relay_handle: Any, target: LlmTarget, usage: Any, *, latency_ms: float) -> None:
     if usage is None:
         return
-    record_token_usage(
+    prompt_tokens = usage.prompt_tokens or 0
+    completion_tokens = usage.completion_tokens or 0
+    settings = get_settings()
+    record_call_metrics(
         relay_handle,
         model=target.model,
-        prompt_tokens=usage.prompt_tokens or 0,
-        completion_tokens=usage.completion_tokens or 0,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
         total_tokens=usage.total_tokens or 0,
+        latency_ms=latency_ms,
+        cost_usd=estimate_cost_usd(settings, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens),
     )
 
 
@@ -84,22 +91,30 @@ async def chat_completion(
     relay_handle: Any = None,
 ) -> str:
     """``disable_thinking`` forwards `chat_template_kwargs: {"thinking": false}`
-    — verified against nvidia/nemotron-3.5-lightning-30b-a3b, where it
-    suppresses the model's chain-of-thought entirely (reasoning_content
-    comes back null) instead of leaving it to chance whether that reasoning
-    fits under max_tokens before the real answer. Without this, the same
-    model was non-deterministically spending 2000-5000+ tokens "thinking"
-    before ever emitting its JSON answer, hitting finish_reason="length"
-    mid-thought on roughly one call in three at max_tokens=2000-5000 — a
-    silent, intermittent degrade to the "[LLM unavailable]" fallback despite
-    the API call itself succeeding. If a target model doesn't recognize the
-    parameter it's typically ignored, not rejected — kept opt-in regardless
-    so a self-hosted prod target's behavior isn't assumed."""
+    — verified against nvidia/nemotron-3.5-lightning-30b-a3b on build.nvidia.com
+    (dev), where it suppresses the model's chain-of-thought entirely
+    (reasoning_content comes back null) instead of leaving it to chance
+    whether that reasoning fits under max_tokens before the real answer.
+    Without this, the same model was non-deterministically spending
+    2000-5000+ tokens "thinking" before ever emitting its JSON answer,
+    hitting finish_reason="length" mid-thought on roughly one call in three
+    at max_tokens=2000-5000 — a silent, intermittent degrade to the "[LLM
+    unavailable]" fallback despite the API call itself succeeding.
+
+    The self-hosted vLLM prod target (same checkpoint, served under the
+    "lifeshield" alias) uses a different chat-template key for the same
+    toggle — `enable_thinking`, not `thinking` — verified live via
+    `curl http://10.187.9.29:8069/v1/chat/completions` from the Curiosity v2
+    host itself. Both keys are sent together so this works unmodified against
+    either backend: each ignores the key it doesn't recognize rather than
+    rejecting the request (verified for both), so this is not a per-target
+    branch, just belt-and-suspenders."""
     kwargs: dict = {}
     if disable_thinking:
-        kwargs["extra_body"] = {"chat_template_kwargs": {"thinking": False}}
+        kwargs["extra_body"] = {"chat_template_kwargs": {"thinking": False, "enable_thinking": False}}
 
     async def _call(t: LlmTarget) -> str:
+        started = time.monotonic()
         resp = await _client_for(t).chat.completions.create(
             model=t.model,
             messages=[
@@ -110,7 +125,7 @@ async def chat_completion(
             max_tokens=max_tokens,
             **kwargs,
         )
-        _record_usage(relay_handle, t, resp.usage)
+        _record_usage(relay_handle, t, resp.usage, latency_ms=(time.monotonic() - started) * 1000)
         return resp.choices[0].message.content or ""
 
     return await _with_failover(target, _call)
@@ -154,13 +169,14 @@ async def vision_completion(
         kwargs["response_format"] = {"type": "json_object"}
 
     async def _call(t: LlmTarget) -> str:
+        started = time.monotonic()
         resp = await _client_for(t).chat.completions.create(
             model=t.model,
             messages=[{"role": "user", "content": content}],
             max_tokens=max_tokens,
             **kwargs,
         )
-        _record_usage(relay_handle, t, resp.usage)
+        _record_usage(relay_handle, t, resp.usage, latency_ms=(time.monotonic() - started) * 1000)
         return resp.choices[0].message.content or ""
 
     return await _with_failover(target, _call)
